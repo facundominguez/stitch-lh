@@ -5,7 +5,7 @@
 -- Module      :  Language.Stitch.Unchecked
 -- Copyright   :  (C) 2015 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  Richard Eisenberg (rae@cs.brynmawr.edu)
+-- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
 -- Stability   :  experimental
 --
 -- Defines the AST for un-type-checked expressions

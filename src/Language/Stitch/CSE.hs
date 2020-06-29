@@ -7,7 +7,7 @@
 -- Module      :  Language.Stitch.CSE
 -- Copyright   :  (C) 2018 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  Richard Eisenberg (rae@cs.brynmawr.edu)
+-- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
 -- Stability   :  experimental
 --
 -- Eliminate common sub-expressions from a Stitch program

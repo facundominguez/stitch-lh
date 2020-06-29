@@ -10,7 +10,7 @@
 -- Module      :  Language.Stitch.Exp
 -- Copyright   :  (C) 2015 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  Richard Eisenberg (rae@cs.brynmawr.edu)
+-- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
 -- Stability   :  experimental
 --
 -- The Exp GADT. Stitch expressions encoded in an 'Exp' value are

@@ -6,7 +6,7 @@
 -- Module      :  Language.Stitch.Monad
 -- Copyright   :  (C) 2015 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  Richard Eisenberg (rae@cs.brynmawr.edu)
+-- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
 -- Stability   :  experimental
 --
 -- The Stitch monad, allowing for pretty-printed output to the user, failing
