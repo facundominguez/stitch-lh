@@ -1,0 +1,106 @@
+name:           stitch
+version:        1.0
+cabal-version:  >= 1.10
+synopsis:       A simply typed lambda calculus interpreter, written with GADTs
+homepage:       https://github.com/goldfirere/stitch
+category:       Compilers/Interpreters
+author:         Richard Eisenberg <rae@cs.brynmawr.edu>
+maintainer:     Richard Eisenberg <rae@cs.brynmawr.edu>
+bug-reports:    https://github.com/goldfirere/stitch/issues
+stability:      unknown
+extra-source-files: README.md, CHANGES.md
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+description:
+    This is an interpreter for the simply-typed lambda calculus. It is
+    written making heavy use of generalized algebraic datatypes (GADTs), and is
+    meant to serve as an example how how these GADTs can be useful. See
+    the GitHub repo for more information about the syntax for the language
+    and interpreter commands.
+
+source-repository this
+  type:     git
+  location: https://github.com/goldfirere/stitch.git
+  tag:      v1.0
+
+library
+  build-depends:      base >= 4.10 && < 5
+                    , ansi-wl-pprint >= 0.6.7.1
+                    , mtl >= 2.2.1
+                    , transformers >= 0.4.0.0
+                    , containers >= 0.5
+                    , parsec >= 3.1
+                    , haskeline >= 0.7.1.1
+                    , directory >= 1.2.0.1
+                    , hashable >= 1.2.7.0
+                    , deepseq >= 1.4
+
+
+  exposed-modules:    Language.Stitch.Repl
+                      Language.Stitch.Check
+                      Language.Stitch.CSE
+                      Language.Stitch.Eval
+                      Language.Stitch.Exp
+                      Language.Stitch.Globals
+                      Language.Stitch.Lex
+                      Language.Stitch.Monad
+                      Language.Stitch.Op
+                      Language.Stitch.Parse
+                      Language.Stitch.Pretty
+                      Language.Stitch.Shift
+                      Language.Stitch.Statement
+                      Language.Stitch.Token
+                      Language.Stitch.Type
+                      Language.Stitch.Unchecked
+                      Language.Stitch.Util
+                      Language.Stitch.Control.Monad.HReader
+                      Language.Stitch.Data.Exists
+                      Language.Stitch.Data.Fin
+                      Language.Stitch.Data.Nat
+                      Language.Stitch.Data.SNat
+                      Language.Stitch.Data.Singletons
+                      Language.Stitch.Data.Vec
+                      Language.Stitch.Data.IHashMap.Array
+                      Language.Stitch.Data.IHashMap.Base
+                      Language.Stitch.Data.IHashMap.Lazy
+                      Language.Stitch.Data.IHashMap.List
+                      Language.Stitch.Data.IHashMap.UnsafeShift
+                      Language.Stitch.Data.IHashSet
+                      Language.Stitch.Data.IHashSet.Base
+                      Language.Stitch.Data.IHashable
+
+  hs-source-dirs:     src
+  ghc-options:        -Wall -Wno-name-shadowing -Wno-unticked-promoted-constructors -Werror -dno-debug-output
+  default-language:   Haskell2010
+
+executable stitch
+  build-depends:      base >= 4.10 && < 5
+                    , stitch
+
+  hs-source-dirs:     main
+  ghc-options:        -Wall -fno-warn-name-shadowing
+  default-language:   Haskell2010
+  main-is:            Main.hs
+
+test-suite tests
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     tests
+  ghc-options:        -Wall -fno-warn-name-shadowing
+  default-language:   Haskell2010
+  main-is:            Tests/Main.hs
+
+  other-modules:      Tests.Check
+                      Tests.Parse
+                      Tests.Lex
+                      Tests.Util
+
+  build-depends:      base >= 4.10 && < 5
+                    , stitch
+                    , template-haskell
+                    , ansi-wl-pprint >= 0.6.7.1
+                    , mtl >= 2.2.1
+                    , transformers >= 0.4.0.0
+                    , parsec >= 3.1
+                    , tasty >= 0.8.1
+                    , tasty-hunit >= 0.9

@@ -1,0 +1,8 @@
+-- This file allows local project settings, overriding global
+-- settings. In our case, these settings speed up compilation.
+
+packages: ./*.cabal
+
+profiling: false
+documentation: false
+optimization: 0
