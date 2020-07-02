@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes, TypeOperators, ScopedTypeVariables,
-             TypeFamilies, TypeInType, TypeApplications,
-             ViewPatterns,
+             TypeFamilies, PolyKinds, TypeApplications,
+             ViewPatterns, DataKinds,
              GADTs, LambdaCase, EmptyCase #-}
 {-# OPTIONS_GHC -Wincomplete-patterns #-}
 

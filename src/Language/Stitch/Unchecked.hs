@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeInType, FlexibleInstances, TypeFamilies #-}
+{-# LANGUAGE PolyKinds, DataKinds, FlexibleInstances, TypeFamilies #-}
 
 -----------------------------------------------------------------------------
 -- |

@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, MagicHash, Rank2Types, UnboxedTuples, CPP #-}
+{-# LANGUAGE BangPatterns, MagicHash, RankNTypes, UnboxedTuples, CPP #-}
 {-# OPTIONS_GHC -fno-full-laziness -funbox-strict-fields #-}
 
 -- | Zero based arrays.

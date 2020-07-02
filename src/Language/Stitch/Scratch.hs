@@ -1,5 +1,5 @@
-{-# LANGUAGE GADTs, RankNTypes, TypeInType, TypeOperators, TypeApplications,
-             TypeFamilies#-}
+{-# LANGUAGE GADTs, RankNTypes, PolyKinds, TypeOperators, TypeApplications,
+             TypeFamilies #-}
 
 module Language.Stitch.Scratch where
 

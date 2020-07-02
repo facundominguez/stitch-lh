@@ -1,5 +1,5 @@
-{-# LANGUAGE LambdaCase, TypeInType, GADTs, RankNTypes, TypeApplications,
-             TypeOperators #-}
+{-# LANGUAGE LambdaCase, PolyKinds, GADTs, RankNTypes, TypeApplications,
+             TypeOperators, DataKinds #-}
 
 -----------------------------------------------------------------------------
 -- |

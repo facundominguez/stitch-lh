@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeInType, GADTs, StandaloneDeriving, TypeOperators,
+{-# LANGUAGE PolyKinds, DataKinds, GADTs, StandaloneDeriving, TypeOperators,
              TypeFamilies, UndecidableInstances #-}
 
 module Language.Stitch.Data.Fin where

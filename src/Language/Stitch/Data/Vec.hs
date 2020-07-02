@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeInType, GADTs, TypeOperators, TypeFamilies,
+{-# LANGUAGE PolyKinds, DataKinds, GADTs, TypeOperators, TypeFamilies,
              StandaloneDeriving, ExplicitForAll #-}
 
 module Language.Stitch.Data.Vec where

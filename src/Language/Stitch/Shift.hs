@@ -1,6 +1,6 @@
-{-# LANGUAGE ScopedTypeVariables, TypeInType, TypeOperators,
+{-# LANGUAGE ScopedTypeVariables, PolyKinds, TypeOperators,
              TypeFamilies, GADTs, StandaloneDeriving, RankNTypes,
-             LambdaCase, EmptyCase, TypeApplications #-}
+             LambdaCase, EmptyCase, TypeApplications, DataKinds #-}
 
 -----------------------------------------------------------------------------
 -- |

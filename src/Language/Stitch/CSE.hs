@@ -1,6 +1,6 @@
-{-# LANGUAGE TypeInType, GADTs, MultiParamTypeClasses, LambdaCase,
+{-# LANGUAGE PolyKinds, GADTs, MultiParamTypeClasses, LambdaCase,
              TypeFamilies, TypeOperators, RankNTypes, AllowAmbiguousTypes,
-             ScopedTypeVariables, TypeApplications #-}
+             ScopedTypeVariables, TypeApplications, DataKinds #-}
 
 -----------------------------------------------------------------------------
 -- |

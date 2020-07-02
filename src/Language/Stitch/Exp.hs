@@ -1,8 +1,8 @@
-{-# LANGUAGE GADTs, TypeOperators, TypeFamilies, TypeInType,
+{-# LANGUAGE GADTs, TypeOperators, TypeFamilies, PolyKinds,
              ScopedTypeVariables, UndecidableInstances, UndecidableSuperClasses,
              FlexibleInstances, StandaloneDeriving, PatternSynonyms,
              ViewPatterns, TypeApplications, TypeFamilyDependencies,
-             ConstraintKinds #-}
+             ConstraintKinds, DataKinds #-}
 {-# OPTIONS_GHC -Wno-orphans #-}  -- {I,}Hashable instance for Elem
 
 -----------------------------------------------------------------------------

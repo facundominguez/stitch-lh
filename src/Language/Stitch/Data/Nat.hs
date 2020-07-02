@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeInType, TypeOperators, TypeFamilies, MultiParamTypeClasses,
+{-# LANGUAGE PolyKinds, DataKinds, TypeOperators, TypeFamilies, MultiParamTypeClasses,
              FlexibleInstances, UndecidableInstances #-}
 
 module Language.Stitch.Data.Nat where

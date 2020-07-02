@@ -1,5 +1,5 @@
-{-# LANGUAGE RankNTypes, TypeInType, GADTs, FlexibleContexts, CPP,
-             TypeApplications, PatternSynonyms #-}
+{-# LANGUAGE RankNTypes, PolyKinds, GADTs, FlexibleContexts, CPP,
+             TypeApplications, PatternSynonyms, DataKinds #-}
 
 #ifdef __HADDOCK_VERSION__
 {-# OPTIONS_GHC -Wno-unused-imports #-}

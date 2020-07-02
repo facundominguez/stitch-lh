@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, UndecidableInstances, ViewPatterns,
-             NondecreasingIndentation, TypeInType #-}
+             NondecreasingIndentation, PolyKinds, DataKinds #-}
 
 -----------------------------------------------------------------------------
 -- |

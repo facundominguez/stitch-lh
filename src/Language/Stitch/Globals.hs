@@ -1,5 +1,5 @@
-{-# LANGUAGE GADTs, TypeInType, RankNTypes, FlexibleContexts,
-             StandaloneDeriving #-}
+{-# LANGUAGE GADTs, PolyKinds, RankNTypes, FlexibleContexts,
+             StandaloneDeriving, DataKinds #-}
 
 -----------------------------------------------------------------------------
 -- |

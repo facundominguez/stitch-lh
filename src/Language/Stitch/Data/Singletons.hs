@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, TypeInType, TypeFamilies, TypeOperators,
+{-# LANGUAGE RankNTypes, PolyKinds, DataKinds, TypeFamilies, TypeOperators,
              GADTs, TypeApplications,
              ScopedTypeVariables, InstanceSigs, StandaloneDeriving,
              FlexibleContexts, UndecidableInstances, FlexibleInstances #-}

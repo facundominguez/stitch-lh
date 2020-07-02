@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeInType, GADTs, RankNTypes, QuantifiedConstraints #-}
+{-# LANGUAGE PolyKinds, GADTs, RankNTypes, QuantifiedConstraints #-}
 
 -- Support for existentials
 

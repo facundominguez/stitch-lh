@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, TypeInType, TypeOperators, RankNTypes, ConstraintKinds,
+{-# LANGUAGE GADTs, PolyKinds, TypeOperators, RankNTypes, ConstraintKinds,
              ScopedTypeVariables, TypeApplications, PatternSynonyms,
              ViewPatterns, TupleSections #-}
 {-# OPTIONS_GHC -Wno-orphans #-}

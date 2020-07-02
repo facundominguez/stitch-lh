@@ -1,6 +1,6 @@
-{-# LANGUAGE ViewPatterns, GADTs, TypeInType, TypeFamilies, TypeApplications,
+{-# LANGUAGE ViewPatterns, GADTs, PolyKinds, TypeFamilies, TypeApplications,
              FlexibleInstances, UndecidableInstances, ScopedTypeVariables,
-             FlexibleContexts #-}
+             FlexibleContexts, DataKinds #-}
 
 -----------------------------------------------------------------------------
 -- |
