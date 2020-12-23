@@ -19,7 +19,7 @@ module Tests.Util (
   (@?=), (@=?), (@?) )
   where
 
-import Language.Stitch.Util
+import Language.Stitch.LH.Util
 
 import Test.Tasty
 import Test.Tasty.HUnit ( testCase, (@?), Assertion )

@@ -3,7 +3,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.Stitch.Monad
+-- Module      :  Language.Stitch.LH.Monad
 -- Copyright   :  (C) 2015 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
@@ -14,7 +14,7 @@
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Monad (
+module Language.Stitch.LH.Monad (
   -- * The 'Stitch' monad
   Stitch, runStitch, prompt, quit,
 
@@ -25,8 +25,8 @@ module Language.Stitch.Monad (
   StitchM(..),
   ) where
 
-import Language.Stitch.Globals
-import Language.Stitch.Util
+import Language.Stitch.LH.Check
+import Language.Stitch.LH.Util
 
 import System.Console.Haskeline
 

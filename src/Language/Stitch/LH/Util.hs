@@ -1,11 +1,9 @@
-{-# LANGUAGE GADTs, PolyKinds, TypeOperators, RankNTypes, ConstraintKinds,
-             ScopedTypeVariables, TypeApplications, PatternSynonyms,
-             ViewPatterns, TupleSections #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.Stitch.Util
+-- Module      :  Language.Stitch.LH.Util
 -- Copyright   :  (C) 2015 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
@@ -17,7 +15,7 @@
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Util (
+module Language.Stitch.LH.Util (
   render, toSimpleDoc, maybeParens, ($$),
   Prec, topPrec,
   stripWhitespace, foldl1M,

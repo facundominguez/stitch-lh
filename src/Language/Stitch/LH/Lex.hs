@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.Stitch.Lex
+-- Module      :  Language.Stitch.LH.Lex
 -- Copyright   :  (C) 2015 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
@@ -10,13 +10,13 @@
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Lex ( lexM, lex ) where
+module Language.Stitch.LH.Lex ( lexM, lex ) where
 
 import Prelude hiding ( lex )
 
-import Language.Stitch.Token
-import Language.Stitch.Op
-import Language.Stitch.Monad
+import Language.Stitch.LH.Token
+import Language.Stitch.LH.Op
+import Language.Stitch.LH.Monad
 
 import Text.Parsec.Prim  ( Parsec, parse, getPosition, try )
 import Text.Parsec.Combinator
@@ -105,17 +105,17 @@ symbolic = choice [ LParen   <$  char '('
                   , Semi     <$  char ';' ]
 
 -- | Lex one arithmetic operator
-arith_op :: Lexer UArithOp
-arith_op = choice [ uPlus     <$ char '+'
-                  , uMinus    <$ char '-'
-                  , uTimes    <$ char '*'
-                  , uDivide   <$ char '/'
-                  , uMod      <$ char '%'
-                  , uLessE    <$ try (string "<=")
-                  , uLess     <$ char '<'
-                  , uGreaterE <$ try (string ">=")
-                  , uGreater  <$ char '>'
-                  , uEquals   <$ try (string "==")]
+arith_op :: Lexer ArithOp
+arith_op = choice [ Plus     <$ char '+'
+                  , Minus    <$ char '-'
+                  , Times    <$ char '*'
+                  , Divide   <$ char '/'
+                  , Mod      <$ char '%'
+                  , LessE    <$ try (string "<=")
+                  , Less     <$ char '<'
+                  , GreaterE <$ try (string ">=")
+                  , Greater  <$ char '>'
+                  , Equals   <$ try (string "==")]
 
 -- | Lex one alphanumeric token
 word_token :: Lexer Token

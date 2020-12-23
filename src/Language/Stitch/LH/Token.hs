@@ -1,8 +1,8 @@
-{-# LANGUAGE TupleSections, GADTs, StandaloneDeriving, DataKinds #-}
+{-# LANGUAGE TupleSections #-}
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.Stitch.Token
+-- Module      :  Language.Stitch.LH.Token
 -- Copyright   :  (C) 2015 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
@@ -12,13 +12,13 @@
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Token (
+module Language.Stitch.LH.Token (
   -- * Tokens
   Token(..), LToken(..), noLoc, unLoc, unArithOp, unInt, unBool, unName
   ) where
 
-import Language.Stitch.Util
-import Language.Stitch.Op
+import Language.Stitch.LH.Util
+import Language.Stitch.LH.Op
 
 import Text.PrettyPrint.ANSI.Leijen  as Pretty
 import Text.Parsec.Pos ( SourcePos, newPos )
@@ -33,7 +33,7 @@ data Token
   | Dot
   | ArrowTok
   | Colon
-  | ArithOp UArithOp
+  | ArithOp ArithOp
   | IntTok Int
   | BoolTok Bool
   | If
@@ -47,8 +47,8 @@ data Token
   | Name String
     deriving Eq
 
--- | Perhaps extract a 'UArithOp'
-unArithOp :: Token -> Maybe UArithOp
+-- | Perhaps extract a 'ArithOp'
+unArithOp :: Token -> Maybe ArithOp
 unArithOp (ArithOp x) = Just x
 unArithOp _           = Nothing
 

@@ -1,8 +1,9 @@
 module Tests.Parse where
 
-import Language.Stitch.Lex
-import Language.Stitch.Parse
-import Language.Stitch.Util
+import Language.Stitch.LH.Lex
+import Language.Stitch.LH.Parse
+import Language.Stitch.LH.Unchecked
+import Language.Stitch.LH.Util
 import Tests.Util
 
 import Prelude hiding ( lex )
@@ -35,7 +36,7 @@ parseTests :: TestTree
 parseTests = testGroup "Parser"
   [ testGroup "Success" $
     List.map (\(str, out) -> testCase ("`" ++ str ++ "'") $
-              (render $ plain $ pretty (parseExp =<< lex str)) @?=
+              (render $ plain $ pretty (fmap (ScopedUExp 0) $ parseExp =<< lex str)) @?=
                 ("Right " ++ out))
              parseTestCases
   , testGroup "Failure" $

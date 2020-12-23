@@ -1,9 +1,11 @@
 {-# LANGUAGE FlexibleInstances, UndecidableInstances, ViewPatterns,
-             NondecreasingIndentation, PolyKinds, DataKinds #-}
+             NondecreasingIndentation #-}
+{-# OPTIONS_GHC -fplugin=LiquidHaskell #-}
+{-@ LIQUID "--exact-data-cons" @-}
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.Stitch.Repl
+-- Module      :  Language.Stitch.LH.Repl
 -- Copyright   :  (C) 2015 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
@@ -13,25 +15,25 @@
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Repl ( main ) where
+module Language.Stitch.LH.Repl ( main ) where
 
 import Prelude hiding ( lex )
 
-import Language.Stitch.Check
-import Language.Stitch.Eval
-import Language.Stitch.Lex
-import Language.Stitch.Parse
-import Language.Stitch.Unchecked
-import Language.Stitch.Util
-import Language.Stitch.Statement
-import Language.Stitch.Globals
-import Language.Stitch.Monad
-import Language.Stitch.Exp
-import Language.Stitch.CSE
-import Language.Stitch.Type
-
-import Language.Stitch.Data.Nat
-import Language.Stitch.Data.Vec
+import Language.Stitch.LH.Data.List (List)
+import qualified Language.Stitch.LH.Data.List as List -- XXX: required by LH
+-- XXX: LH requires Map to be in scope ??
+import Language.Stitch.LH.Data.Map (Map)
+import Language.Stitch.LH.Check
+import Language.Stitch.LH.Eval
+import Language.Stitch.LH.Lex
+import Language.Stitch.LH.Parse
+import Language.Stitch.LH.Step
+import Language.Stitch.LH.Unchecked
+import Language.Stitch.LH.Util
+import Language.Stitch.LH.Statement
+import Language.Stitch.LH.Monad
+-- import Language.Stitch.LH.CSE
+import Language.Stitch.LH.Type
 
 import Text.PrettyPrint.ANSI.Leijen as Pretty hiding ( (<$>) )
 
@@ -51,6 +53,7 @@ main = runInputT defaultSettings $
          helloWorld
          loop
 
+{-@ lazy loop @-}
 loop :: Stitch ()
 loop = do
   m_line <- prompt "λ> "
@@ -75,10 +78,8 @@ version = "1.0"
 -- running statements
 
 runStmts :: String -> Stitch ()
-runStmts str = stitchE $ do
-    toks <- lexM str
-    stmts <- parseStmtsM toks
-    doStmts stmts
+runStmts str = stitchE $
+    lexM str >>= parseStmtsM >>= doStmts
 
 -- | Run a sequence of statements, returning the new global variables
 doStmts :: [Statement] -> StitchE Globals
@@ -88,12 +89,13 @@ doStmts (s:ss) = doStmt s $ doStmts ss
 -- | Run a 'Statement' and then run another action with the global
 -- variables built in the 'Statement'
 doStmt :: Statement -> StitchE a -> StitchE a
-doStmt (BareExp uexp) thing_inside = check uexp $ \sty exp -> do
-  printLine $ printValWithType (eval exp) sty
+doStmt (BareExp uexp) thing_inside = checkM uexp $ \e tye -> do
+  printLine $ printValWithType (eval e) tye
   thing_inside
-doStmt (NewGlobal g uexp) thing_inside = check uexp $ \sty exp -> do
-  printLine $ text g <+> char '=' <+> printWithType exp sty
-  local (extend g sty exp) thing_inside
+doStmt (NewGlobal g uexp) thing_inside =
+  checkM uexp $ \e t -> do
+    printLine $ text g <+> char '=' <+> printWithType (ScopedExp 0 e) t
+    local (extendGlobals g (TypedExp e t)) thing_inside
 
 -------------------------------------------
 -- commands
@@ -105,14 +107,14 @@ runCommand = dispatchCommand cmdTable
 type CommandTable = [(String, String -> Stitch ())]
 
 dispatchCommand :: CommandTable -> String -> Stitch ()
-dispatchCommand table line
+dispatchCommand table line_s
   = case List.filter ((cmd `List.isPrefixOf`) . fst) table of
       []            -> do printLine $ text "Unknown command:" <+> squotes (text cmd)
       [(_, action)] -> action arg
       many          -> do printLine $ text "Ambiguous command:" <+> squotes (text cmd)
                           printLine $ text "Possibilities:" $$
                                       indent 2 (vcat $ List.map (text . fst) many)
-  where (cmd, arg) = List.break isSpace line
+  where (cmd, arg) = List.break isSpace line_s
 
 cmdTable :: CommandTable
 cmdTable = [ ("quit",     quitCmd)
@@ -123,8 +125,8 @@ cmdTable = [ ("quit",     quitCmd)
            , ("step",     stepCmd)
            , ("type",     typeCmd)
            , ("all",      allCmd)
-           , ("cse",      cseCmd)
-           , ("cse-step", cseStepCmd)
+--           , ("cse",      cseCmd)
+--           , ("cse-step", cseStepCmd)
            , ("help",     helpCmd)
            ]
 
@@ -151,55 +153,64 @@ stitchE thing_inside = do
     Right x  -> report x
   put new_globals
 
-parseLex :: String -> StitchE (UExp Zero)
+{-@ parseLex :: String -> StitchE ClosedUExpP @-}
+parseLex :: String -> StitchE UExp
 parseLex = parseExpM <=< lexM
 
 printWithType :: (Pretty exp, Pretty ty) => exp -> ty -> Doc
-printWithType exp ty
-  = pretty exp <+> colon <+> pretty ty
+printWithType e tye
+  = pretty e <+> colon <+> pretty tye
 
-printValWithType :: ValuePair ty -> STy ty -> Doc
-printValWithType val sty
-  = pretty val <+> colon <+> pretty sty
+printValWithType :: Value -> Ty -> Doc
+printValWithType val tye
+  = pretty val <+> colon <+> pretty tye
 
-showSteps :: STy ty -> Exp VNil ty -> StitchE Int
-showSteps sty exp = do
-  printLine $ printWithType exp sty
-  let loop num_steps e = case step e of
-        Step e' -> do
-          printLine $ text "-->" <+> printWithType e' sty
-          loop (num_steps + 1) e'
-        Value _ -> return num_steps
-  loop 0 exp
+{-@
+// XXX: WellTypedExp Nil doesn't work here because it needs --ple,
+// and --ple is not usable unless we get rid of the uses of the
+// list type [a] in this module.
+assume showSteps :: ty:Ty -> WellTypedExp Nil -> StitchE Int
+ignore showSteps
+@-}
+showSteps :: Ty -> Exp -> StitchE Int
+showSteps sty e0 = do
+  printLine $ printWithType (ScopedExp 0 e0) sty
+  let loopSteps num_steps e = case step e of
+        Just e' -> do
+          printLine $ text "-->" <+> printWithType (ScopedExp 0 e') sty
+          loopSteps (num_steps + 1) e'
+        Nothing -> return num_steps
+  loopSteps 0 e0
 
-lexCmd, parseCmd, evalCmd, stepCmd, typeCmd, allCmd, loadCmd, cseCmd, cseStepCmd
+lexCmd, parseCmd, evalCmd, typeCmd, loadCmd, allCmd, stepCmd -- , cseCmd, cseStepCmd
   , helpCmd
   :: String -> Stitch ()
-lexCmd expr = stitchE $ lexM expr
-parseCmd = stitchE . parseLex
+lexCmd expr_s = stitchE $ lexM expr_s
+parseCmd = stitchE . fmap (ScopedUExp 0) . parseLex
 
-evalCmd expr = stitchE $ do
-  uexp <- parseLex expr
-  check uexp $ \sty exp ->
-    return $ printValWithType (eval exp) sty
+evalCmd expr_s = stitchE $ do
+  uexp <- parseLex expr_s
+  checkM uexp $ \e t ->
+    return $ printValWithType (eval e) t
 
-stepCmd expr = stitchE $ do
-  uexp <- parseLex expr
-  check uexp $ \sty exp -> do
-    _ <- showSteps sty exp
+stepCmd expr_s = stitchE $ do
+  uexp <- parseLex expr_s
+  checkM uexp $ \e sty -> do
+    _ <- showSteps sty e
     return ()
 
-typeCmd expr = stitchE $ do
-  uexp <- parseLex expr
-  check uexp $ \sty exp -> return (printWithType exp sty)
+typeCmd expr_s = stitchE $ do
+  uexp <- parseLex expr_s
+  checkM uexp $ \e t ->
+    return $ printWithType (ScopedExp 0 e) t
 
-allCmd expr = do
+allCmd e = do
   printLine (text "Small step:")
-  _ <- stepCmd expr
+  _ <- stepCmd e
 
   printLine Pretty.empty
   printLine (text "Big step:")
-  evalCmd expr
+  evalCmd e
 
 loadCmd (stripWhitespace -> file) = do
   file_exists <- liftIO $ doesFileExist file
@@ -211,7 +222,7 @@ loadCmd (stripWhitespace -> file) = do
       printLine (text "File not found:" <+> squotes (text file))
       cwd <- liftIO getCurrentDirectory
       printLine (parens (text "Current directory:" <+> text cwd))
-
+{-
 cseCmd expr = stitchE $ do
   uexp <- parseLex expr
   check uexp $ \_sty exp -> do
@@ -233,7 +244,7 @@ cseStepCmd expr = stitchE $ do
     printLine $ text "Number of steps:" <+> pretty n'
 
     return ()
-
+-}
 helpCmd _ = do
   printLine $ text "Available commands:"
   printLine $ text " :quit             Quits the interpreter"
@@ -242,8 +253,13 @@ helpCmd _ = do
   printLine $ text " :step <expr>      Small-steps an expression until it becomes a value"
   printLine $ text " :type <expr>      Type-check an expression and report the type"
   printLine $ text " :all <expr>       Combination of :eval and :step"
-  printLine $ text " :cse <expr>       Performs common-subexpression elimination (CSE)"
-  printLine $ text " :cse-step <expr>  Steps an expression both before and after CSE"
+--  printLine $ text " :cse <expr>       Performs common-subexpression elimination (CSE)"
+--  printLine $ text " :cse-step <expr>  Steps an expression both before and after CSE"
   printLine $ text " :help             Shows this help text"
   printLine $ text "You may also type an expression to evaluate it, or assign to a global"
   printLine $ text "variable with `<var> = <expr>`"
+
+checkM :: UExp -> (Exp -> Ty -> StitchE a) -> StitchE a
+checkM uexp f = do
+  globals <- ask
+  either (issueError . pretty) id $ check globals uexp $ \e t -> Right (f e t)

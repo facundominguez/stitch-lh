@@ -4,7 +4,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.Stitch.CSE
+-- Module      :  Language.Stitch.LH.CSE
 -- Copyright   :  (C) 2018 Richard Eisenberg
 -- License     :  BSD-style (see LICENSE)
 -- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
@@ -14,7 +14,7 @@
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.CSE ( cse ) where
+module Language.Stitch.LH.CSE ( cse ) where
 
 {- GENERAL APPROACH
 
@@ -45,19 +45,19 @@ We do CSE in three steps:
    this duplication of Lets is why we need part (a) of step 3.)
 -}
 
-import Language.Stitch.Type
-import Language.Stitch.Exp
-import Language.Stitch.Shift
-import Language.Stitch.Util
+import Language.Stitch.LH.Type
+import Language.Stitch.LH.Exp
+import Language.Stitch.LH.Shift
+import Language.Stitch.LH.Util
 
-import Language.Stitch.Data.Vec
-import Language.Stitch.Data.Exists
+import Language.Stitch.LH.Data.Vec
+import Language.Stitch.LH.Data.Exists
 
 import Data.Type.Equality
 
-import qualified Language.Stitch.Data.IHashMap.Lazy as M
-import qualified Language.Stitch.Data.IHashSet as S
-import Language.Stitch.Data.IHashable
+import qualified Language.Stitch.LH.Data.IHashMap.Lazy as M
+import qualified Language.Stitch.LH.Data.IHashSet as S
+import Language.Stitch.LH.Data.IHashable
 
 import Data.Kind
 
