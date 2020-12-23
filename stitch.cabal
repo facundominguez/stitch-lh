@@ -25,8 +25,7 @@ source-repository this
   tag:      v1.0
 
 library
-  build-depends:      base >= 4.10 && < 5
-                    , ansi-wl-pprint >= 0.6.7.1
+  build-depends:      ansi-wl-pprint >= 0.6.7.1
                     , mtl >= 2.2.1
                     , transformers >= 0.4.0.0
                     , containers >= 0.5
@@ -35,6 +34,8 @@ library
                     , directory >= 1.2.0.1
                     , hashable >= 1.2.7.0
                     , deepseq >= 1.4
+                    , liquidhaskell
+                    , liquid-base
 
 
   exposed-modules:    Language.Stitch.Repl

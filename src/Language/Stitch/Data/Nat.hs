@@ -1,11 +1,6 @@
-{-# LANGUAGE PolyKinds, DataKinds, TypeOperators, TypeFamilies, MultiParamTypeClasses,
-             FlexibleInstances, UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin=LiquidHaskell #-}
 
 module Language.Stitch.Data.Nat where
 
-data Nat = Zero | Succ Nat
-  deriving Show
-
-type family n + m where
-  Zero   + m = m
-  Succ n + m = Succ (n + m)
+{-@ type Nat = { v : Int | v >= 0 } @-}
+type Nat = Int
