@@ -1,4 +1,4 @@
-{-# LANGUAGE PolyKinds, DataKinds #-}
+{-# OPTIONS_GHC -fplugin=LiquidHaskell #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -15,17 +15,22 @@
 
 module Language.Stitch.Statement ( Statement(..) ) where
 
+-- XXX: Import Op so LH doesn't fail with: Unknown type constructor `ArithOp`
+import Language.Stitch.Op
 import Language.Stitch.Unchecked
-import Language.Stitch.Data.Nat
 
 import Text.PrettyPrint.ANSI.Leijen
 
 -- | A statement can either be a bare expression, which will be evaluated,
 -- or an assignment to a global variable.
-data Statement = BareExp (UExp Zero)
-               | NewGlobal String (UExp Zero)
+{-@
+data Statement = BareExp (VarsSmallerThan UExp 0)
+               | NewGlobal String (VarsSmallerThan UExp 0)
+@-}
+data Statement = BareExp UExp
+               | NewGlobal String UExp
   deriving Show
 
 instance Pretty Statement where
-  pretty (BareExp exp)     = pretty exp
-  pretty (NewGlobal v exp) = text v <+> char '=' <+> pretty exp
+  pretty (BareExp e)     = pretty (ScopedUExp 0 e)
+  pretty (NewGlobal v e) = text v <+> char '=' <+> pretty (ScopedUExp 0 e)

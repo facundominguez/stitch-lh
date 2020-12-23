@@ -2,6 +2,7 @@ module Tests.Parse where
 
 import Language.Stitch.Lex
 import Language.Stitch.Parse
+import Language.Stitch.Unchecked
 import Language.Stitch.Util
 import Tests.Util
 
@@ -35,7 +36,7 @@ parseTests :: TestTree
 parseTests = testGroup "Parser"
   [ testGroup "Success" $
     List.map (\(str, out) -> testCase ("`" ++ str ++ "'") $
-              (render $ plain $ pretty (parseExp =<< lex str)) @?=
+              (render $ plain $ pretty (fmap (ScopedUExp 0) $ parseExp =<< lex str)) @?=
                 ("Right " ++ out))
              parseTestCases
   , testGroup "Failure" $

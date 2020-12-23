@@ -1,5 +1,7 @@
-{-# LANGUAGE LambdaCase, PolyKinds, GADTs, RankNTypes, TypeApplications,
-             TypeOperators, DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -fplugin=LiquidHaskell #-}
+{-@ LIQUID "--max-case-expand=0" @-}
+{-@ LIQUID "--no-termination" @-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -16,11 +18,12 @@
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Parse (
+-- | Using an export list causes LH to crash with a stack overflow
+module Language.Stitch.Parse {- (
   parseStmtsM, parseStmts,
   parseStmtM, parseExpM,
   parseStmt, parseExp
-  ) where
+  ) -} where
 
 import Language.Stitch.Unchecked
 import Language.Stitch.Statement
@@ -30,8 +33,6 @@ import Language.Stitch.Type
 import Language.Stitch.Monad
 import Language.Stitch.Util
 
-import Language.Stitch.Data.Nat
-import Language.Stitch.Data.Vec
 
 import Text.Parsec.Prim as Parsec hiding ( parse, (<|>) )
 import Text.Parsec.Pos
@@ -43,8 +44,9 @@ import qualified Data.List as List
 
 import Control.Applicative
 import Control.Arrow as Arrow ( left )
-import Control.Monad.Reader
-import Language.Stitch.Control.Monad.HReader
+import Control.Monad.Identity
+import Data.List (elemIndex)
+
 
 -----------------------
 -- Exports
@@ -66,17 +68,22 @@ parseStmtM = eitherToStitchE . parseStmt
 parseStmt :: [LToken] -> Either String Statement
 parseStmt = parse stmt
 
+-- XXX: LH can't find the definition of VarsSmallerThan in
+-- Language.Stitch.Unchecked
+{-@ type ClosedUExpP = { e : UExp | numFreeVars e = 0 } @-}
+
 -- | Parse a 'UExp', aborting with an error upon failure
-parseExpM :: [LToken] -> StitchE (UExp Zero)
+{-@ parseExpM :: [LToken] -> StitchE ClosedUExpP @-}
+parseExpM :: [LToken] -> StitchE UExp
 parseExpM = eitherToStitchE . parseExp
 
 -- | Parse a 'UExp'
-parseExp :: [LToken] -> Either String (UExp Zero)
-parseExp = parse expr
+{-@ parseExp :: [LToken] -> Either String ClosedUExpP @-}
+parseExp :: [LToken] -> Either String UExp
+parseExp = parse (expr [])
 
-parse :: Parser Zero a -> [LToken] -> Either String a
-parse p tokens = Arrow.left show $
-                 runReader (runParserT (p <* eof) () "" tokens) VNil
+parse :: Parser a -> [LToken] -> Either String a
+parse p toks = Arrow.left show $ runParser (p <* eof) () "" toks
 
 ----------------------
 -- Plumbing
@@ -84,23 +91,22 @@ parse p tokens = Arrow.left show $
 -- A parser usable in a context with n bound variables
 -- the "state" is a list of bound names. searching a bound name in the list
 -- gives you the correct deBruijn index
-type Parser n a = ParsecT [LToken] () (Reader (Vec String n)) a
-
--- | Bind a name over an expression
-bind :: String -> Parser (Succ n) a -> Parser n a
-bind bound_var thing_inside
-  = hlocal (bound_var :>) thing_inside
+type Parser a = Parsec [LToken] () a
+type CtxParser a = [String] -> Parsec [LToken] () a
 
 -- | Parse the given nullary token
-tok :: Token -> Parser n ()
+tok :: Token -> Parser ()
 tok t = tokenPrim (render . pretty) next_pos (guard . (t ==) . unLoc)
 
 -- | Parse the given unary token
-tok' :: (Token -> Maybe thing) -> Parser n thing
+tok' :: (Token -> Maybe thing) -> Parser thing
 tok' matcher = tokenPrim (render . pretty) next_pos (matcher . unLoc)
 
+tokUnName :: Parser String
+tokUnName = tok' unName
+
 -- | Parse one of a set of 'ArithOp's
-arith_op :: [UArithOp] -> Parser n UArithOp
+arith_op :: [ArithOp] -> Parser ArithOp
 arith_op ops = tokenPrim (render . pretty) next_pos
                          (\case L _ (ArithOp op) | op `elem` ops -> Just op
                                 _                                -> Nothing)
@@ -115,88 +121,105 @@ next_pos _   _ (L pos _ : _) = pos
 --------------
 -- Real work
 
-stmts :: Parser Zero [Statement]
+-- stmts :: Parser Zero [Statement]
+stmts :: Parser [Statement]
 stmts = stmt `sepEndBy` tok Semi
 
-stmt :: Parser Zero Statement
-stmt = choice [ try $ NewGlobal <$> tok' unName <* tok Assign <*> expr
-              , BareExp <$> expr ]
+-- stmt :: Parser Zero Statement
+-- XXX: LH crashes on stmt with: Unbound symbol lq_tmp$x##14994
+stmt :: Parser Statement
+-- XXX: Using $ for the argument of try crashes LH.
+stmt = choice [ try (NewGlobal <$> tok' unName <* tok Assign <*> expr [])
+              , BareExp <$> expr [] ]
 
-expr :: Parser n (UExp n)
-expr = choice [ lam
-              , cond
-              , let_exp
-              , int_exp `chainl1` bool_op ]
+{-@ expr :: ctx : [String] -> Parser {e : UExp | numFreeVars e <= len ctx } @-}
+expr :: CtxParser UExp
+expr ctx =
+  choice [ lam ctx
+         , cond ctx
+         , let_exp ctx
+         , int_exp ctx `chainl1` bool_op UArith ]
 
-int_exp :: Parser n (UExp n)
-int_exp = term `chainl1` add_op
+{-@ int_exp :: ctx : [String] -> Parser {e : UExp | numFreeVars e <= len ctx } @-}
+int_exp :: CtxParser UExp
+int_exp ctx = term ctx `chainl1` add_op UArith
 
-term :: Parser n (UExp n)
-term = apps `chainl1` mul_op
+{-@ term :: ctx : [String] -> Parser {e : UExp | numFreeVars e <= len ctx } @-}
+term :: CtxParser UExp
+term ctx = apps ctx `chainl1` mul_op UArith
 
-apps :: Parser n (UExp n)
-apps = choice [ UFix <$ tok FixTok <*> expr
-              , List.foldl1 UApp <$> some factor ]
+{-@ apps :: ctx : [String] -> Parser {e : UExp | numFreeVars e <= len ctx } @-}
+apps :: CtxParser UExp
+apps ctx = choice [ UFix <$ tok FixTok <*> expr ctx
+                  , List.foldl1 UApp <$> some (factor ctx) ]
 
-factor :: Parser n (UExp n)
-factor = choice [ between (tok LParen) (tok RParen) expr
-                , UIntE <$> tok' unInt
-                , UBoolE <$> tok' unBool
-                , var ]
+{-@ factor :: ctx : [String] -> Parser {e : UExp | numFreeVars e <= len ctx } @-}
+factor :: CtxParser UExp
+factor ctx = choice [ between (tok LParen) (tok RParen) (expr ctx)
+                    , UIntE <$> tok' unInt
+                    , UBoolE <$> tok' unBool
+                    , var ctx ]
 
-lam :: Parser n (UExp n)
-lam = do
-  tok Lambda
-  bound_var <- tok' unName
-  tok Colon
-  typ <- ty
-  tok Dot
-  e <- bind bound_var $ expr
+{-@ lam :: ctx : [String] -> Parser {e : UExp | numFreeVars e <= len ctx } @-}
+lam :: CtxParser UExp
+-- XXX: Using do notation causes LH to fail with: Unbound symbol VV##5088
+lam ctx =
+  tok Lambda >>
+  tok' unName >>= \bound_var ->
+  tok Colon >>
+  ty >>= \typ ->
+  tok Dot >>
+  expr (bound_var : ctx) >>= \e ->
   return (ULam typ e)
 
-cond :: Parser n (UExp n)
-cond = UCond <$ tok If <*> expr <* tok Then <*> expr <* tok Else <*> expr
+{-@ cond :: ctx : [String] -> Parser {e : UExp | numFreeVars e <= len ctx } @-}
+cond :: CtxParser UExp
+cond ctx = UCond <$ tok If <*> expr ctx <* tok Then <*> expr ctx <* tok Else <*> expr ctx
 
-let_exp :: Parser n (UExp n)
-let_exp = do
-  tok LetTok
-  bound_var <- tok' unName
-  tok Assign
-  rhs <- expr
-  tok InTok
-  body <- bind bound_var $ expr
+{-@ let_exp :: ctx : [String] -> Parser {e : UExp | numFreeVars e <= len ctx } @-}
+let_exp :: CtxParser UExp
+-- XXX: Using do notation causes LH to fail with: Unbound symbol VV##5088
+let_exp ctx =
+  tok LetTok >>
+  tok' unName >>= \bound_var ->
+  tok Assign >>
+  expr ctx >>= \rhs ->
+  tok InTok >>
+  expr (bound_var : ctx) >>= \body ->
   return (ULet rhs body)
 
-var :: Parser n (UExp n)
-var = do
+{-@ assume elemIndex :: Eq a => a -> xs : [a] -> Maybe { n:Nat | n < len xs } @-}
+
+{-@ var :: ctx : [String] -> Parser {e : UExp | numFreeVars e <= len ctx } @-}
+var :: CtxParser UExp
+var ctx = do
   n <- tok' unName
-  m_index <- asks (elemIndex n)
-  case m_index of
+  case elemIndex n ctx of
     Nothing -> return (UGlobal n)
     Just i  -> return (UVar i)
 
-add_op, mul_op, bool_op :: Parser n (UExp n -> UExp n -> UExp n)
-add_op = mk_op <$> arith_op [uPlus, uMinus]
-mul_op = mk_op <$> arith_op [uTimes, uDivide, uMod]
-bool_op = mk_op <$> arith_op [uLess, uLessE, uGreater, uGreaterE, uEquals]
+bool_op, add_op, mul_op :: (a -> ArithOp -> a -> a) -> Parser (a -> a -> a)
+bool_op f = mk_op f <$> arith_op [Less, LessE, Greater, GreaterE, Equals]
+add_op f = mk_op f <$> arith_op [Plus, Minus]
+mul_op f = mk_op f <$> arith_op [Times, Divide, Mod]
 
-mk_op :: UArithOp -> UExp n -> UExp n -> UExp n
-mk_op op = \e1 e2 -> UArith e1 op e2
+mk_op :: (a -> ArithOp -> a -> a) -> ArithOp -> a -> a -> a
+mk_op f = \op e1 e2 -> f e1 op e2
 
 ----------------------------------------
 -- Types
 
-ty :: Parser n Ty
+ty :: Parser Ty
 ty = chainr1 arg_ty (arrX <$ tok ArrowTok)
   where
     arrX :: Ty -> Ty -> Ty
-    arrX arg res = arg :-> res
+    arrX arg res = TFun arg res
 
-arg_ty :: Parser n Ty
+arg_ty :: Parser Ty
 arg_ty = choice [ between (tok LParen) (tok RParen) ty
                 , tycon ]
 
-tycon :: Parser n Ty
+tycon :: Parser Ty
 tycon = do
   n <- tok' unName
   case n of

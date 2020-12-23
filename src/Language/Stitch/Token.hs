@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections, GADTs, StandaloneDeriving, DataKinds #-}
+{-# LANGUAGE TupleSections #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -33,7 +33,7 @@ data Token
   | Dot
   | ArrowTok
   | Colon
-  | ArithOp UArithOp
+  | ArithOp ArithOp
   | IntTok Int
   | BoolTok Bool
   | If
@@ -47,8 +47,8 @@ data Token
   | Name String
     deriving Eq
 
--- | Perhaps extract a 'UArithOp'
-unArithOp :: Token -> Maybe UArithOp
+-- | Perhaps extract a 'ArithOp'
+unArithOp :: Token -> Maybe ArithOp
 unArithOp (ArithOp x) = Just x
 unArithOp _           = Nothing
 

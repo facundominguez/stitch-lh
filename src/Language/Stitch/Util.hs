@@ -1,6 +1,4 @@
-{-# LANGUAGE GADTs, PolyKinds, TypeOperators, RankNTypes, ConstraintKinds,
-             ScopedTypeVariables, TypeApplications, PatternSynonyms,
-             ViewPatterns, TupleSections #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -----------------------------------------------------------------------------

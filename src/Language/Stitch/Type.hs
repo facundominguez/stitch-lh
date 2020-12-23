@@ -1,93 +1,70 @@
-{-# LANGUAGE DataKinds, TypeOperators, KindSignatures, GADTs,
-             TypeFamilies, StandaloneDeriving, DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+{-# OPTIONS_GHC -fplugin=LiquidHaskell -Wno-incomplete-patterns #-}
 
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.Stitch.Type
 -- Copyright   :  (C) 2015 Richard Eisenberg
+--                (C) 2021 Facundo Domínguez
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
 -- Stability   :  experimental
 --
 -- Defines types
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Type (
-      Ty(..), STy(..), extractResType
-    , testEquality, (:~:)(..)
-  ) where
+module Language.Stitch.Type where
 
 import Language.Stitch.Util
-import Language.Stitch.Data.Singletons
 
 import Text.PrettyPrint.ANSI.Leijen
-import Data.Kind
-import Data.Type.Equality
 import Data.Hashable
 import GHC.Generics
+import Language.Haskell.Liquid.ProofCombinators (Proof, (==.), (***), QED(..))
 
 -- | The type of a Stitch expression
 data Ty = TInt
         | TBool
-        | Ty :-> Ty
+        | TFun Ty Ty
   deriving (Show, Eq, Generic, Hashable)
-infixr 0 :->
 
--- | The singleton for a Stitch type
-data STy :: Ty -> Type where
-  SInt   :: STy TInt
-  SBool  :: STy TBool
-  (::->) :: STy arg -> STy res -> STy (arg :-> res)
-infixr 0 ::->
+{-@
+type FunTy = {t : Ty | isFunTy t }
+data Ty = TInt
+        | TBool
+        | TFun Ty Ty
+@-}
 
-deriving instance Show (STy ty)
+{-@ measure funResTy @-}
+{-@ funResTy :: FunTy -> Ty @-}
+funResTy :: Ty -> Ty
+funResTy (TFun _ b) = b
 
-instance Hashable (STy ty) where
-  hashWithSalt s = hashWithSalt s . fromSing
+{-@ measure funArgTy @-}
+{-@ funArgTy :: FunTy -> Ty @-}
+funArgTy :: Ty -> Ty
+funArgTy (TFun a _) = a
 
-instance SingKind Ty where
-  type Sing = STy
+{-@ measure isFunTy @-}
+isFunTy :: Ty -> Bool
+isFunTy (TFun _ _) = True
+isFunTy _ = False
 
-  fromSing SInt       = TInt
-  fromSing SBool      = TBool
-  fromSing (a ::-> r) = fromSing a :-> fromSing r
-
-  toSing TInt      cont = cont SInt
-  toSing TBool     cont = cont SBool
-  toSing (a :-> r) cont = toSing a $ \sa ->
-                          toSing r $ \sr ->
-                          cont (sa ::-> sr)
-
-instance SingI TInt where
-  sing = SInt
-instance SingI TBool where
-  sing = SBool
-instance (SingI a, SingI r) => SingI (a :-> r) where
-  sing = sing ::-> sing
-
--- | Informative equality on types
-instance TestEquality STy where
-  testEquality SInt SInt   = Just Refl
-  testEquality SBool SBool = Just Refl
-  testEquality (a1 ::-> r1) (a2 ::-> r2) = do
-    Refl <- testEquality a1 a2
-    Refl <- testEquality r1 r2
-    return Refl
-  testEquality _ _ = Nothing
-
--- | Extract the result type of an STy known to be an arrow
-extractResType :: STy (arg :-> res) -> STy res
-extractResType (_ ::-> res) = res
-
------------------------------------------
--- Pretty-printing
+-- XXX: Can't find a way to replace ==. with === in this proof.
+{-@
+funTypeProjections_prop
+  :: ty:FunTy -> { ty = TFun (funArgTy ty) (funResTy ty) }
+@-}
+funTypeProjections_prop :: Ty -> Proof
+funTypeProjections_prop ty@(TFun _ _) =
+  ty
+  ==.
+  TFun (funArgTy ty) (funResTy ty)
+  ***
+  QED
 
 instance Pretty Ty where
   pretty = pretty_ty topPrec
-
-instance Pretty (STy ty) where
-  pretty sty = pretty_ty topPrec (fromSing sty)
 
 arrowLeftPrec, arrowRightPrec, arrowPrec :: Prec
 arrowLeftPrec  = 5
@@ -95,9 +72,9 @@ arrowRightPrec = 4.9
 arrowPrec      = 5
 
 pretty_ty :: Prec -> Ty -> Doc
-pretty_ty prec (arg :-> res) = maybeParens (prec >= arrowPrec) $
+pretty_ty p (TFun arg res) = maybeParens (p >= arrowPrec) $
                                hsep [ pretty_ty arrowLeftPrec arg
                                     , text "->"
                                     , pretty_ty arrowRightPrec res ]
-pretty_ty _    TInt          = text "Int"
-pretty_ty _    TBool         = text "Bool"
+pretty_ty _    TInt        = text "Int"
+pretty_ty _    TBool       = text "Bool"

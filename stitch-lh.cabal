@@ -1,12 +1,11 @@
-name:           stitch
+name:           stitch-lh
 version:        1.0
 cabal-version:  >= 1.10
 synopsis:       A simply typed lambda calculus interpreter, written with GADTs
 homepage:       https://gitlab.com/goldfirere/stitch
 category:       Compilers/Interpreters
-author:         Richard Eisenberg <rae@richarde.dev>
-maintainer:     Richard Eisenberg <rae@richarde.dev>
-bug-reports:    https://gitlab.com/goldfirere/stitch/issues
+author:         Richard Eisenberg <rae@richarde.dev>, Facundo Domínguez <facundominguez@gmail.com>
+maintainer:     Facundo Domínguez <facundominguez@gmail.com>
 stability:      unknown
 extra-source-files: README.md, CHANGES.md
 license:        BSD3
@@ -25,58 +24,46 @@ source-repository this
   tag:      v1.0
 
 library
-  build-depends:      base >= 4.10 && < 5
-                    , ansi-wl-pprint >= 0.6.7.1
+  build-depends:      ansi-wl-pprint >= 0.6.7.1
                     , mtl >= 2.2.1
                     , transformers >= 0.4.0.0
-                    , containers >= 0.5
                     , parsec >= 3.1
                     , haskeline >= 0.7.1.1
                     , directory >= 1.2.0.1
                     , hashable >= 1.2.7.0
                     , deepseq >= 1.4
+                    , liquidhaskell
+                    , liquid-base
+                    , liquid-containers
+                    , liquid-prelude
 
-
-  exposed-modules:    Language.Stitch.Repl
+  exposed-modules:
+                      Language.Stitch.Repl
                       Language.Stitch.Check
-                      Language.Stitch.CSE
+                      -- Language.Stitch.CSE
+                      Language.Stitch.Data.List
+                      Language.Stitch.Data.Map
                       Language.Stitch.Eval
-                      Language.Stitch.Exp
-                      Language.Stitch.Globals
+                      Language.Stitch.Infer
                       Language.Stitch.Lex
                       Language.Stitch.Monad
                       Language.Stitch.Op
                       Language.Stitch.Parse
                       Language.Stitch.Pretty
-                      Language.Stitch.Shift
                       Language.Stitch.Statement
                       Language.Stitch.Token
                       Language.Stitch.Type
                       Language.Stitch.Unchecked
                       Language.Stitch.Util
-                      Language.Stitch.Control.Monad.HReader
-                      Language.Stitch.Data.Exists
-                      Language.Stitch.Data.Fin
                       Language.Stitch.Data.Nat
-                      Language.Stitch.Data.SNat
-                      Language.Stitch.Data.Singletons
-                      Language.Stitch.Data.Vec
-                      Language.Stitch.Data.IHashMap.Array
-                      Language.Stitch.Data.IHashMap.Base
-                      Language.Stitch.Data.IHashMap.Lazy
-                      Language.Stitch.Data.IHashMap.List
-                      Language.Stitch.Data.IHashMap.UnsafeShift
-                      Language.Stitch.Data.IHashSet
-                      Language.Stitch.Data.IHashSet.Base
-                      Language.Stitch.Data.IHashable
 
   hs-source-dirs:     src
-  ghc-options:        -Wall -Wno-name-shadowing -Wno-unticked-promoted-constructors
+  ghc-options:        -Wall -Wno-unticked-promoted-constructors
   default-language:   Haskell2010
 
-executable stitch
-  build-depends:      base >= 4.10 && < 5
-                    , stitch
+executable stitch-lh
+  build-depends:      liquid-base >= 4.10 && < 5
+                    , stitch-lh
 
   hs-source-dirs:     main
   ghc-options:        -Wall -fno-warn-name-shadowing
@@ -95,8 +82,10 @@ test-suite tests
                       Tests.Lex
                       Tests.Util
 
-  build-depends:      base >= 4.10 && < 5
-                    , stitch
+  build-depends:      liquid-base >= 4.10 && < 5
+                    , liquidhaskell
+                    , liquid-containers
+                    , stitch-lh
                     , template-haskell
                     , ansi-wl-pprint >= 0.6.7.1
                     , mtl >= 2.2.1

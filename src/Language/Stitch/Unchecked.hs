@@ -1,59 +1,129 @@
-{-# LANGUAGE PolyKinds, DataKinds, FlexibleInstances, TypeFamilies #-}
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.Stitch.Unchecked
 -- Copyright   :  (C) 2015 Richard Eisenberg
+--                (C) 2021 Facundo Domínguez
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
 -- Stability   :  experimental
 --
 -- Defines the AST for un-type-checked expressions
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Unchecked ( UExp(..) ) where
+{-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -fplugin=LiquidHaskell #-}
+{-@ LIQUID "--exact-data-cons" @-}
+
+module Language.Stitch.Unchecked where
 
 import Language.Stitch.Pretty
 import Language.Stitch.Type
 import Language.Stitch.Op
 import Language.Stitch.Util
-import Language.Stitch.Data.Fin
-import Language.Stitch.Data.Nat
-import Language.Stitch.Data.Singletons
+import Language.Stitch.Data.Nat as Nat
 
 import Text.PrettyPrint.ANSI.Leijen
 
--- | Unchecked expression, indexed by the number of variables in scope
-data UExp (n :: Nat)
-  = UVar (Fin n)   -- ^ de Bruijn index for a variable
+{-@
+data UExp
+  = UVar Nat
   | UGlobal String
-  | ULam Ty (UExp (Succ n))
-  | UApp (UExp n) (UExp n)
-  | ULet (UExp n) (UExp (Succ n))
-  | UArith (UExp n) UArithOp (UExp n)
-  | UCond (UExp n) (UExp n) (UExp n)
-  | UFix (UExp n)
+  | ULam Ty UExp
+  | UApp UExp UExp
+  | ULet UExp UExp
+  | UArith UExp ArithOp UExp
+  | UCond UExp UExp UExp
+  | UFix UExp
   | UIntE Int
   | UBoolE Bool
-  deriving Show
+@-}
 
-instance SingI n => Pretty (UExp n) where
-  pretty = prettyExp topPrec
+-- | Unchecked expression
+data UExp
+  = UVar Nat
+  | UGlobal String
+  | ULam Ty UExp
+  | UApp UExp UExp
+  | ULet UExp UExp
+  | UArith UExp ArithOp UExp
+  | UCond UExp UExp UExp
+  | UFix UExp
+  | UIntE Int
+  | UBoolE Bool
+  deriving (Eq, Show)
 
-instance SingI n => PrettyExp (UExp n) where
-  type NumBoundVars (UExp n) = n
-  prettyExp = pretty_exp
+-- XXX: Looks like we can't count the variables in scope without modifying
+-- the type UExp. Instead, we count the minimum amount of variables that
+-- should be in scope to make the expression valid.
+{-@
+measure numFreeVars
+numFreeVars :: UExp -> Nat
+@-}
+numFreeVars :: UExp -> Nat
+numFreeVars (UVar v) = v + 1
+numFreeVars (UGlobal _) = 0
+numFreeVars (ULam _ body) = Nat.minus (numFreeVars body) 1
+numFreeVars (UApp e1 e2) = Nat.max (numFreeVars e1) (numFreeVars e2)
+numFreeVars (ULet e1 e2) =
+    Nat.max (numFreeVars e1) (Nat.minus (numFreeVars e2) 1)
+numFreeVars (UArith e1 _ e2) = Nat.max (numFreeVars e1) (numFreeVars e2)
+numFreeVars (UCond e1 e2 e3) =
+    Nat.max (Nat.max (numFreeVars e1) (numFreeVars e2)) (numFreeVars e3)
+numFreeVars (UFix body) = numFreeVars body
+numFreeVars (UIntE _) = 0
+numFreeVars (UBoolE _) = 0
 
-pretty_exp :: SingI n => Prec -> UExp n -> Doc
-pretty_exp _    (UVar n)                       = prettyVar n
-pretty_exp _    (UGlobal n)                    = text n
-pretty_exp prec (ULam ty body)                 = prettyLam prec ty body
-pretty_exp prec (UApp e1 e2)                   = prettyApp prec e1 e2
-pretty_exp prec (ULet e1 e2)                   = prettyLet prec e1 e2
-pretty_exp prec (UArith e1 (UArithOp _ op) e2) = prettyArith prec e1 op e2
-pretty_exp prec (UCond e1 e2 e3)               = prettyIf prec e1 e2 e3
-pretty_exp prec (UFix body)                    = prettyFix prec body
-pretty_exp _    (UIntE n)                      = int n
-pretty_exp _    (UBoolE True)                  = text "true"
-pretty_exp _    (UBoolE False)                 = text "false"
+{-@
+type VarsSmallerThan exp N = { e : exp | numFreeVars e <= N }
+type ClosedUExp = { e : UExp | VarsSmallerThan UExp 0 }
+@-}
+
+-- An expression paired with the bound for the valid
+-- variable indices
+{-@ data ScopedUExp = ScopedUExp (n :: NumVarsInScope) (VarsSmallerThan UExp n) @-}
+data ScopedUExp = ScopedUExp NumVarsInScope UExp
+  deriving (Eq, Show)
+
+instance Pretty ScopedUExp where
+  pretty (ScopedUExp n e) = prettyExp n topPrec e
+
+{-@ prettyExp :: n : NumVarsInScope -> Prec -> VarsSmallerThan UExp n -> Doc @-}
+prettyExp :: NumVarsInScope -> Prec -> UExp -> Doc
+prettyExp n prec = \case
+  UVar v       -> applyColor (ScopedVar n v) (char '#' <> int v)
+
+  UGlobal name -> text name
+
+  -- XXX: Putting the alternatives below in auxiliary functions would cause
+  -- a mysterious failure in LH.
+  ULam ty body -> maybeParens (prec >= lamPrec) $
+    fillSep [ char 'λ' <> applyColor (ScopedVar (n + 1) 0) (char '#') <>
+              text ":" <> pretty ty <> char '.'
+            , prettyExp (n + 1) topPrec body ]
+
+  UApp e1 e2 -> maybeParens (prec >= appPrec) $
+    fillSep [ prettyExp n appLeftPrec  e1
+            , prettyExp n appRightPrec e2 ]
+
+  ULet e1 e2 -> maybeParens (prec >= lamPrec) $
+    fillSep [ text "let" <+> applyColor (ScopedVar (n + 1) 0) (char '#') <+>
+              char '=' <+> prettyExp n topPrec e1 <+> text "in"
+            , prettyExp (n + 1) topPrec e2 ]
+
+  UArith e1 op e2 -> maybeParens (prec >= opPrec op) $
+    fillSep [ prettyExp n (opLeftPrec op) e1 <+> pretty op
+            , prettyExp n (opRightPrec op) e2 ]
+
+  UCond e1 e2 e3 -> maybeParens (prec >= ifPrec) $
+    fillSep [ text "if" <+> prettyExp n topPrec e1
+            , text "then" <+> prettyExp n topPrec e2
+            , text "else" <+> prettyExp n topPrec e3 ]
+
+  UFix body -> maybeParens (prec >= appPrec) $
+                 text "fix" <+> prettyExp n topPrec body
+
+  UIntE i -> int i
+
+  UBoolE True -> text "true"
+
+  UBoolE False -> text "false"

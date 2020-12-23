@@ -25,7 +25,7 @@ module Language.Stitch.Monad (
   StitchM(..),
   ) where
 
-import Language.Stitch.Globals
+import Language.Stitch.Check
 import Language.Stitch.Util
 
 import System.Console.Haskeline

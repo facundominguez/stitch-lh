@@ -21,19 +21,19 @@ lexTestCases = [ ("", [])
                , ("{- froggle -} -- blah", [])
                , ("x", [Name "x"])
                , ("(()", [LParen, LParen, RParen])
-               , ("++--++", [ArithOp uPlus, ArithOp uPlus])
+               , ("++--++", [ArithOp Plus, ArithOp Plus])
                , ("->->", [ArrowTok, ArrowTok])
-               , ("45+332-89/1*3%xyz", [ IntTok 45, ArithOp uPlus, IntTok 332
-                                       , ArithOp uMinus, IntTok 89, ArithOp uDivide
-                                       , IntTok 1, ArithOp uTimes, IntTok 3
-                                       , ArithOp uMod, Name "xyz" ])
-               , ("===", [ArithOp uEquals, Assign])
+               , ("45+332-89/1*3%xyz", [ IntTok 45, ArithOp Plus, IntTok 332
+                                       , ArithOp Minus, IntTok 89, ArithOp Divide
+                                       , IntTok 1, ArithOp Times, IntTok 3
+                                       , ArithOp Mod, Name "xyz" ])
+               , ("===", [ArithOp Equals, Assign])
                , ("if x then y else z", [If, Name "x", Then, Name "y", Else, Name "z"])
                , ("ifs trues falsee true-", [ Name "ifs", Name "trues", Name "falsee"
-                                            , BoolTok True, ArithOp uMinus ])
+                                            , BoolTok True, ArithOp Minus ])
                , (":\\", [Colon, Lambda])
-               , (">>==<===<", [ ArithOp uGreater, ArithOp uGreaterE, Assign
-                               , ArithOp uLessE, ArithOp uEquals, ArithOp uLess ])
+               , (">>==<===<", [ ArithOp Greater, ArithOp GreaterE, Assign
+                               , ArithOp LessE, ArithOp Equals, ArithOp Less ])
                ]
 
 lexTests :: TestTree

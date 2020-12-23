@@ -1,143 +1,296 @@
-{-# LANGUAGE RankNTypes, PolyKinds, GADTs, FlexibleContexts, CPP,
-             TypeApplications, PatternSynonyms, DataKinds #-}
-
-#ifdef __HADDOCK_VERSION__
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-#endif
+{-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -fplugin=LiquidHaskell #-}
+{-@ LIQUID "--exact-data-cons" @-}
+-- ple is necessary to reason about the evaluation of checkBindings
+{-@ LIQUID "--ple" @-}
 
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.Stitch.Check
 -- Copyright   :  (C) 2015 Richard Eisenberg
+--                (C) 2021 Facundo Domínguez
 -- License     :  BSD-style (see LICENSE)
--- Maintainer  :  Richard Eisenberg (rae@richarde.dev)
 -- Stability   :  experimental
 --
 -- The stitch typechecker.
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Check ( check ) where
+module Language.Stitch.Check where
 
-import Language.Stitch.Exp
-import Language.Stitch.Shift
-import Language.Stitch.Op
+-- XXX: If we don't import Data.Set, LH fails with: Unbound symbol Set_mem
+import qualified Data.Set as Set
+import Language.Stitch.Data.List (List(..))
+import qualified Language.Stitch.Data.List as List
+import Language.Stitch.Data.Map (Map)
+import qualified Language.Stitch.Data.Map as Map
+import Language.Stitch.Data.Nat as Nat
 import Language.Stitch.Type
+import Language.Stitch.Op
+import Language.Stitch.Pretty
 import Language.Stitch.Unchecked
-import Language.Stitch.Util
-import Language.Stitch.Globals
-#ifdef __HADDOCK_VERSION__
-import Language.Stitch.Monad ( StitchE )
-#endif
-
-import Language.Stitch.Data.Nat
-import Language.Stitch.Data.Fin
-import Language.Stitch.Data.Singletons
-import Language.Stitch.Data.Vec
-
 import Text.PrettyPrint.ANSI.Leijen
 
-import Control.Monad.Reader
-import Control.Monad.Except
 
--- | Abort with a type error in the given expression
-typeError :: (MonadError Doc m, SingI n) => UExp n -> Doc -> m a
-typeError e doc = throwError $
-                  doc $$ text "in the expression" <+> squotes (pretty e)
+{-@
+type VarsSmallerThanExp N = { e : Exp | numFreeVarsExp e <= N }
+type SaneBindings exp CTX = { e : exp | checkBindings CTX e }
+type WellTypedExp CTX = SaneBindings (VarsSmallerThanExp (List.length CTX)) CTX
+predicate WellTyped E CTX = checkBindings CTX E && numFreeVarsExp E <= (List.length CTX)
+type FunExp = { e : Exp | isFunTy (exprType e) }
+type ExpT T = { e : Exp | T = exprType e }
+data Exp
+  = Var Ty Nat
+  | Lam Ty Exp
+  | App (e1 :: FunExp) (ExpT (funArgTy (exprType e1)))
+  | Let Exp Exp
+  | Arith (ExpT TInt) ArithOp (ExpT TInt)
+  | Cond (ExpT TBool) (a :: Exp) (ExpT (exprType a))
+  | Fix ({ e:FunExp | funArgTy (exprType e) = funResTy (exprType e) })
+  | IntE Int
+  | BoolE Bool
+@-}
 
-------------------------------------------------
--- The typechecker
+-- | Checked expression
+data Exp
+  = Var Ty Nat
+  | Lam Ty Exp
+  | App Exp Exp
+  | Let Exp Exp
+  | Arith Exp ArithOp Exp
+  | Cond Exp Exp Exp
+  | Fix Exp
+  | IntE Int
+  | BoolE Bool
+  deriving Show
 
--- | Check the given expression, aborting on type errors. The resulting
--- type and checked expression is given to the provided continuation.
--- This is parameterized over the choice of monad in order to support
--- pure operation during testing. 'StitchE' is the canonical choice for the
--- monad.
-check :: (MonadError Doc m, MonadReader Globals m)
-      => UExp Zero -> (forall t. STy t -> Exp VNil t -> m r)
-      -> m r
-check = go SVNil
+-- An expression paired with the bound for the valid
+-- variable indices
+{-@ data ScopedExp = ScopedExp (n :: NumVarsInScope) (VarsSmallerThanExp n) @-}
+data ScopedExp = ScopedExp NumVarsInScope Exp
+
+instance Pretty ScopedExp where
+  pretty (ScopedExp n e) = pretty (ScopedUExp n (uncheckExp e))
+
+{-@ uncheckExp :: e:Exp -> { uexp:UExp | numFreeVarsExp e = numFreeVars uexp } @-}
+uncheckExp :: Exp -> UExp
+uncheckExp = \case
+  Var _ i -> UVar i
+  Lam ty e -> ULam ty (uncheckExp e)
+  App e1 e2 -> UApp (uncheckExp e1) (uncheckExp e2)
+  Let e1 e2 -> ULet (uncheckExp e1) (uncheckExp e2)
+  Arith e1 op e2 -> UArith (uncheckExp e1) op (uncheckExp e2)
+  Cond e1 e2 e3 -> UCond (uncheckExp e1) (uncheckExp e2) (uncheckExp e3)
+  Fix e -> UFix (uncheckExp e)
+  IntE i -> UIntE i
+  BoolE b -> UBoolE b
+
+{-@ measure exprType @-}
+exprType :: Exp -> Ty
+exprType (Var ty _) = ty
+exprType (Lam ty e) = TFun ty (exprType e)
+exprType (App e1 _) = funResTy (exprType e1)
+exprType (Let _ e2) = exprType e2
+exprType (Arith _ op _) = arithType op
+exprType (Cond _ e2 _) = exprType e2
+exprType (Fix e) = funResTy (exprType e)
+exprType (IntE _) = TInt
+exprType (BoolE _) = TBool
+
+-- | Check that all occurrences of a variable have the given type
+{-@ reflect checkBindings @-}
+{-@ checkBindings :: ctx : List Ty -> VarsSmallerThanExp (List.length ctx) -> Bool @-}
+checkBindings :: List Ty -> Exp -> Bool
+checkBindings ctx (Var vty i) = List.elemAt i ctx == vty
+checkBindings ctx (Lam t e) = checkBindings (Cons t ctx) e
+checkBindings ctx (App e1 e2) = checkBindings ctx e1 && checkBindings ctx e2
+checkBindings ctx (Let e1 e2) = checkBindings ctx e1 && checkBindings (Cons (exprType e1) ctx) e2
+checkBindings ctx (Arith e1 _ e2) = checkBindings ctx e1 && checkBindings ctx e2
+checkBindings ctx (Cond e1 e2 e3) = checkBindings ctx e1 && checkBindings ctx e2 && checkBindings ctx e3
+checkBindings ctx (Fix e) = checkBindings ctx e
+checkBindings _ (IntE _) = True
+checkBindings _ (BoolE _) = True
+
+{-@
+assume aClosedExpIsValidInAnyContext
+  :: ctx : List Ty
+  -> e : WellTypedExp Nil
+  -> { er : WellTypedExp ctx | e = er }
+@-}
+aClosedExpIsValidInAnyContext :: List Ty -> Exp -> Exp
+aClosedExpIsValidInAnyContext _ e = e
+
+{-@
+measure numFreeVarsExp
+numFreeVarsExp :: Exp -> Nat
+@-}
+numFreeVarsExp :: Exp -> Nat
+numFreeVarsExp (Var _ v) = v + 1
+numFreeVarsExp (Lam _ body) = Nat.minus (numFreeVarsExp body) 1
+numFreeVarsExp (App e1 e2) = Nat.max (numFreeVarsExp e1) (numFreeVarsExp e2)
+numFreeVarsExp (Let e1 e2) =
+    Nat.max (numFreeVarsExp e1) (Nat.minus (numFreeVarsExp e2) 1)
+numFreeVarsExp (Arith e1 _ e2) = Nat.max (numFreeVarsExp e1) (numFreeVarsExp e2)
+numFreeVarsExp (Cond e1 e2 e3) =
+    Nat.max (Nat.max (numFreeVarsExp e1) (numFreeVarsExp e2)) (numFreeVarsExp e3)
+numFreeVarsExp (Fix body) = numFreeVarsExp body
+numFreeVarsExp (IntE _) = 0
+numFreeVarsExp (BoolE _) = 0
+
+{-@
+check
+  :: Globals
+  -> VarsSmallerThan UExp 0
+  -> (e : WellTypedExp Nil -> { t: Ty | exprType e = t } -> Either TyError b)
+  -> Either TyError b
+@-}
+check :: Globals -> UExp -> (Exp -> Ty -> Either TyError b) -> Either TyError b
+check globals = go Nil
   where
-    -- More general version that supports non-empty contexts.
-    -- In a proof, this would be a generalization of the indction principle.
-    -- The SingI constraint is needed only for the colorization of pretty-printing.
-    go :: (MonadError Doc m, MonadReader Globals m, SingI n)
-       => Sing (ctx :: Ctx n) -> UExp n -> (forall t. STy t -> Exp ctx t -> m r)
-       -> m r
+    {-@
+      go :: ts : List Ty
+         -> VarsSmallerThan UExp (List.length ts)
+         -> (e1 : WellTypedExp ts -> { t: Ty | exprType e1 = t } -> Either TyError b)
+         -> Either TyError b
+      @-}
+    go :: List Ty -> UExp -> (Exp -> Ty -> Either TyError b) -> Either TyError b
+    go ctx ue f = case ue of
+      UVar i -> let ty = List.elemAt i ctx
+                 in f (Var ty i) ty
 
-    go ctx (UVar n) k
-      = check_var n ctx $ \ty elem ->
-        k ty (Var elem)
-      where
-        check_var :: Fin n -> Sing (ctx :: Ctx n)
-                  -> (forall t. STy t -> Elem ctx t -> m r)
-                  -> m r
-        check_var FZ     (ty :%> _)   k = k ty EZ
-        check_var (FS n) (_  :%> ctx) k = check_var n ctx $ \ty elem ->
-                                          k ty (ES elem)
+      UGlobal name -> case lookupGlobal name globals of
+        Just (TypedExp e t) -> f (aClosedExpIsValidInAnyContext ctx e) t
+        Nothing -> Left (OutOfScopeGlobal name)
 
-    go _   (UGlobal n) k
-      = do globals <- ask
-           lookupGlobal globals n $ \ty exp ->
-             k ty (shifts0 exp)
+      -- XXX: Using $ here causes liquid haskell to crash
+      ULam ty body -> go (Cons ty ctx) body (\r rty -> f (Lam ty r) (TFun ty rty))
 
-    go ctx (ULam ty body) k
-      = toSing ty $ \arg_ty ->
-        go (arg_ty :%> ctx) body $ \res_ty body' ->
-        k (arg_ty ::-> res_ty) (Lam arg_ty body')
+      UApp e1 e2 ->
+          go ctx e1 (\te1 ty1 -> go ctx e2 (\te2 ty2 -> case ty1 of
+            TFun farg_ty res_ty ->
+              if farg_ty == ty2 then
+                f (App te1 te2) res_ty
+              else
+                Left $ TypeMismatch
+                  (ScopedUExp (List.length ctx) e2)
+                  farg_ty
+                  ty2
+                  (ScopedUExp (List.length ctx) (UApp e1 e2))
+            ty -> Left (NotAFunction (ScopedUExp (List.length ctx) e1) ty)
+          ))
 
-    go ctx e@(UApp e1 e2) k
-      = go ctx e1 $ \fun_ty e1' ->
-        go ctx e2 $ \arg_ty e2' ->
-        case fun_ty of
-          arg_ty' ::-> res_ty
-            |  Just Refl <- arg_ty `testEquality` arg_ty'
-            -> k res_ty (App e1' e2')
-          _ -> typeError e $
-                   text "Bad function application." $$
-                   indent 2 (vcat [ text "Function type:" <+> pretty fun_ty
-                                  , text "Argument type:" <+> pretty arg_ty ])
+      ULet e1 e2 ->
+        go ctx e1 (\te1 ty1 -> go (Cons ty1 ctx) e2 (\te2 ty2 ->
+          f (Let te1 te2) ty2
+        ))
 
-    go ctx (ULet rhs body) k
-      = go ctx rhs $ \rhs_ty rhs' ->
-        go (rhs_ty :%> ctx) body $ \body_ty body' ->
-        k body_ty (Let rhs' body')
+      UArith e1 op e2 ->
+        go ctx e1 (\te1 ty1 -> go ctx e2 (\te2 ty2 ->
+          if ty1 == TInt then
+            if ty2 == TInt then
+              f (Arith te1 op te2) (arithType op)
+            else
+              Left $ TypeMismatch
+                (ScopedUExp (List.length ctx) e2)
+                TInt
+                ty2
+                (ScopedUExp (List.length ctx) (UArith e1 op e2))
+          else
+            Left $ TypeMismatch
+              (ScopedUExp (List.length ctx) e1)
+              TInt
+              ty1
+              (ScopedUExp (List.length ctx) (UArith e1 op e2))
+        ))
 
-    go ctx e@(UArith e1 (UArithOp s_op_ty op) e2) k
-      = go ctx e1 $ \ty1 e1' ->
-        go ctx e2 $ \ty2 e2' ->
-        case (testEquality SInt ty1, testEquality SInt ty2) of
-          (Just Refl, Just Refl)
-            -> k s_op_ty (Arith e1' op e2')
-          _ -> typeError e $
-               text "Bad arith operand(s)." $$
-               indent 2 (vcat [ text " Left-hand type:" <+> pretty ty1
-                              , text "Right-hand type:" <+> pretty ty2 ])
+      UCond e1 e2 e3 ->
+        go ctx e1 (\te1 ty1 -> go ctx e2 (\te2 ty2 -> go ctx e3 (\te3 ty3 ->
+          if ty1 == TBool then
+            if ty2 == ty3 then
+              f (Cond te1 te2 te3) ty2
+            else
+              Left $ TypeMismatch
+                (ScopedUExp (List.length ctx) e3)
+                ty2
+                ty3
+                (ScopedUExp (List.length ctx) (UCond e1 e2 e3))
+          else
+            Left $ TypeMismatch
+              (ScopedUExp (List.length ctx) e1)
+              TBool
+              ty1
+              (ScopedUExp (List.length ctx) (UCond e1 e2 e3))
+        )))
 
-    go ctx e@(UCond e1 e2 e3) k
-      = go ctx e1 $ \ty1 e1' ->
-        go ctx e2 $ \ty2 e2' ->
-        go ctx e3 $ \ty3 e3' ->
-        case testEquality SBool ty1 of
-          Just Refl
-            |  Just Refl <- ty2 `testEquality` ty3
-            -> k ty2 (Cond e1' e2' e3')
-          _ -> typeError e $
-               text "Bad conditional." $$
-               indent 2 (vcat [ text "Flag type:" <+> pretty ty1
-                              , squotes (text "true") <+> text "expression type:"
-                                                      <+> pretty ty2
-                              , squotes (text "false") <+> text "expression type:"
-                                                       <+> pretty ty3 ])
+      UFix e -> go ctx e (\te1 ty1 -> case ty1 of
+          TFun arg_ty res_ty ->
+            if arg_ty == res_ty then
+              f (Fix te1) res_ty
+            else
+              Left $ TypeMismatch
+                (ScopedUExp (List.length ctx) e)
+                (TFun arg_ty arg_ty)
+                (TFun arg_ty res_ty)
+                (ScopedUExp (List.length ctx) (UFix e))
+          ty -> Left (NotAFunction (ScopedUExp (List.length ctx) e) ty)
+        )
 
-    go ctx e@(UFix e1) k
-      = go ctx e1 $ \ty1 e1' ->
-        case ty1 of
-          arg ::-> res
-            |  Just Refl <- arg `testEquality` res
-            -> k arg (Fix e1')
-          _ -> typeError e $
-               text "Bad fix over expression with type:" <+> pretty ty1
+      UIntE i -> f (IntE i) TInt
 
-    go _   (UIntE n)  k = k sing (IntE n)
-    go _   (UBoolE b) k = k sing (BoolE b)
+      UBoolE b -> f (BoolE b) TBool
+
+data TyError
+  = OutOfScopeGlobal String
+  | NotAFunction ScopedUExp Ty
+  | TypeMismatch ScopedUExp Ty Ty ScopedUExp -- expression expected_type actual_type context
+  deriving Show
+
+instance Pretty TyError where
+  pretty = \case
+    OutOfScopeGlobal name ->
+      text "Global variable not in scope:" <+> squotes (text name)
+    NotAFunction e ty ->
+      text "Expected a function instead of" <+>
+      squotes (prettyTypedExp e ty)
+    TypeMismatch e expected actual ctx ->
+      text "Found" <+> squotes (prettyTypedExp e expected) <$$>
+      text "but expected type" <+> squotes (pretty actual) <$$>
+      inTheExpression ctx
+
+prettyTypedExp :: ScopedUExp -> Ty -> Doc
+prettyTypedExp e ty = pretty e <+> text ":" <+> pretty ty
+
+inTheExpression :: ScopedUExp -> Doc
+inTheExpression e = text "in the expression" <+> squotes (pretty e)
+
+
+{-@
+data TypedExp = TypedExp (e :: WellTypedExp Nil) {t:Ty | exprType e = t}
+@-}
+data TypedExp = TypedExp Exp Ty
+
+{-@ measure typedExpType @-}
+typedExpType :: TypedExp -> Ty
+typedExpType (TypedExp _ ty) = ty
+
+-- | The global variable environment maps variables to
+-- expressions
+-- XXX: Using newtype causes LH to crash.
+data Globals = Globals (Map String TypedExp)
+
+-- | An empty global variable environment
+emptyGlobals :: Globals
+emptyGlobals = Globals Map.empty
+
+-- | Extend a 'Globals' with a new binding
+{-@ extendGlobals :: String -> TypedExp -> Globals -> Globals @-}
+extendGlobals :: String -> TypedExp -> Globals -> Globals
+extendGlobals var e (Globals globals)
+  -- XXX: Using $ causes LH to fail here
+  = Globals (Map.insert var e globals)
+
+-- | Lookup a global variable. Fails with 'throwError' if the variable
+-- is not bound.
+lookupGlobal
+  :: String -> Globals -> Maybe TypedExp
+lookupGlobal var (Globals globals) = Map.lookup var globals
