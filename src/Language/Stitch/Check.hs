@@ -1,9 +1,5 @@
-{-# LANGUAGE RankNTypes, PolyKinds, GADTs, FlexibleContexts, CPP,
-             TypeApplications, PatternSynonyms, DataKinds #-}
-
-#ifdef __HADDOCK_VERSION__
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-#endif
+{-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -fplugin=LiquidHaskell #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -17,8 +13,42 @@
 --
 ----------------------------------------------------------------------------
 
-module Language.Stitch.Check ( check ) where
+module Language.Stitch.Check ( exprType ) where
 
+
+import Data.Map (Map)
+import qualified Data.Map as Map
+import Language.Stitch.Type
+import Language.Stitch.Pretty
+import Language.Stitch.Op
+import Language.Stitch.Unchecked
+import Text.PrettyPrint.ANSI.Leijen
+
+data TyError
+  = OutOfScopeGlobal String
+
+instance Pretty TyError where
+  pretty = \case
+    OutOfScopeGlobal name ->
+      text "Global variable not in scope:" <+> squotes (text name)
+
+exprType :: Map String Ty -> UExp -> Either TyError Ty
+exprType globals = go []
+  where
+    {-@
+    go :: ts : [Ty] -> VarsSmallerThan UExp (len ts) -> Either TyError Ty
+    @-}
+    go :: [Ty] -> UExp -> Either TyError Ty
+    go ctx = \case
+      UVar i -> Right (ctx !! i)
+      _ -> Left (OutOfScopeGlobal "a")
+      UGlobal name -> case Map.lookup name globals of
+        Just t -> Right t
+        Nothing -> Left (OutOfScopeGlobal name)
+
+{-
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Language.Stitch.Exp
 import Language.Stitch.Shift
 import Language.Stitch.Op
@@ -82,62 +112,63 @@ check = go SVNil
              k ty (shifts0 exp)
 
     go ctx (ULam ty body) k
-      = toSing ty $ \arg_ty ->
-        go (arg_ty :%> ctx) body $ \res_ty body' ->
-        k (arg_ty ::-> res_ty) (Lam arg_ty body')
+          = toSing ty $ \arg_ty ->
+            go (arg_ty :%> ctx) body $ \res_ty body' ->
+            k (arg_ty ::-> res_ty) (Lam arg_ty body')
 
-    go ctx e@(UApp e1 e2) k
-      = go ctx e1 $ \fun_ty e1' ->
-        go ctx e2 $ \arg_ty e2' ->
-        case fun_ty of
-          arg_ty' ::-> res_ty
-            |  Just Refl <- arg_ty `testEquality` arg_ty'
-            -> k res_ty (App e1' e2')
-          _ -> typeError e $
-                   text "Bad function application." $$
-                   indent 2 (vcat [ text "Function type:" <+> pretty fun_ty
-                                  , text "Argument type:" <+> pretty arg_ty ])
+        go ctx e@(UApp e1 e2) k
+          = go ctx e1 $ \fun_ty e1' ->
+            go ctx e2 $ \arg_ty e2' ->
+            case fun_ty of
+              arg_ty' ::-> res_ty
+                |  Just Refl <- arg_ty `testEquality` arg_ty'
+                -> k res_ty (App e1' e2')
+              _ -> typeError e $
+                       text "Bad function application." $$
+                       indent 2 (vcat [ text "Function type:" <+> pretty fun_ty
+                                      , text "Argument type:" <+> pretty arg_ty ])
 
-    go ctx (ULet rhs body) k
-      = go ctx rhs $ \rhs_ty rhs' ->
-        go (rhs_ty :%> ctx) body $ \body_ty body' ->
-        k body_ty (Let rhs' body')
+        go ctx (ULet rhs body) k
+          = go ctx rhs $ \rhs_ty rhs' ->
+            go (rhs_ty :%> ctx) body $ \body_ty body' ->
+            k body_ty (Let rhs' body')
 
-    go ctx e@(UArith e1 (UArithOp s_op_ty op) e2) k
-      = go ctx e1 $ \ty1 e1' ->
-        go ctx e2 $ \ty2 e2' ->
-        case (testEquality SInt ty1, testEquality SInt ty2) of
-          (Just Refl, Just Refl)
-            -> k s_op_ty (Arith e1' op e2')
-          _ -> typeError e $
-               text "Bad arith operand(s)." $$
-               indent 2 (vcat [ text " Left-hand type:" <+> pretty ty1
-                              , text "Right-hand type:" <+> pretty ty2 ])
+        go ctx e@(UArith e1 (UArithOp s_op_ty op) e2) k
+          = go ctx e1 $ \ty1 e1' ->
+            go ctx e2 $ \ty2 e2' ->
+            case (testEquality SInt ty1, testEquality SInt ty2) of
+              (Just Refl, Just Refl)
+                -> k s_op_ty (Arith e1' op e2')
+              _ -> typeError e $
+                   text "Bad arith operand(s)." $$
+                   indent 2 (vcat [ text " Left-hand type:" <+> pretty ty1
+                                  , text "Right-hand type:" <+> pretty ty2 ])
 
-    go ctx e@(UCond e1 e2 e3) k
-      = go ctx e1 $ \ty1 e1' ->
-        go ctx e2 $ \ty2 e2' ->
-        go ctx e3 $ \ty3 e3' ->
-        case testEquality SBool ty1 of
-          Just Refl
-            |  Just Refl <- ty2 `testEquality` ty3
-            -> k ty2 (Cond e1' e2' e3')
-          _ -> typeError e $
-               text "Bad conditional." $$
-               indent 2 (vcat [ text "Flag type:" <+> pretty ty1
-                              , squotes (text "true") <+> text "expression type:"
-                                                      <+> pretty ty2
-                              , squotes (text "false") <+> text "expression type:"
-                                                       <+> pretty ty3 ])
+        go ctx e@(UCond e1 e2 e3) k
+          = go ctx e1 $ \ty1 e1' ->
+            go ctx e2 $ \ty2 e2' ->
+            go ctx e3 $ \ty3 e3' ->
+            case testEquality SBool ty1 of
+              Just Refl
+                |  Just Refl <- ty2 `testEquality` ty3
+                -> k ty2 (Cond e1' e2' e3')
+              _ -> typeError e $
+                   text "Bad conditional." $$
+                   indent 2 (vcat [ text "Flag type:" <+> pretty ty1
+                                  , squotes (text "true") <+> text "expression type:"
+                                                          <+> pretty ty2
+                                  , squotes (text "false") <+> text "expression type:"
+                                                           <+> pretty ty3 ])
 
-    go ctx e@(UFix e1) k
-      = go ctx e1 $ \ty1 e1' ->
-        case ty1 of
-          arg ::-> res
-            |  Just Refl <- arg `testEquality` res
-            -> k arg (Fix e1')
-          _ -> typeError e $
-               text "Bad fix over expression with type:" <+> pretty ty1
+        go ctx e@(UFix e1) k
+          = go ctx e1 $ \ty1 e1' ->
+            case ty1 of
+              arg ::-> res
+                |  Just Refl <- arg `testEquality` res
+                -> k arg (Fix e1')
+              _ -> typeError e $
+                   text "Bad fix over expression with type:" <+> pretty ty1
 
-    go _   (UIntE n)  k = k sing (IntE n)
-    go _   (UBoolE b) k = k sing (BoolE b)
+        go _   (UIntE n)  k = k sing (IntE n)
+        go _   (UBoolE b) k = k sing (BoolE b)
+-}
