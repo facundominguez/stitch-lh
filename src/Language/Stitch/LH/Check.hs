@@ -289,8 +289,7 @@ extendGlobals var e (Globals globals)
   -- XXX: Using $ causes LH to fail here
   = Globals (Map.insert var e globals)
 
--- | Lookup a global variable. Fails with 'throwError' if the variable
--- is not bound.
+-- | Lookup a global variable.
 lookupGlobal
   :: String -> Globals -> Maybe TypedExp
 lookupGlobal var (Globals globals) = Map.lookup var globals

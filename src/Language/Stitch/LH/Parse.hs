@@ -88,10 +88,11 @@ parse p toks = Arrow.left show $ runParser (p <* eof) () "" toks
 ----------------------
 -- Plumbing
 
--- A parser usable in a context with n bound variables
--- the "state" is a list of bound names. searching a bound name in the list
--- gives you the correct deBruijn index
 type Parser a = Parsec [LToken] () a
+
+-- | A parser usable in a context with the bound variables in the
+-- argument list. Searching a bound name in the list gives you the
+-- correct deBruijn index
 type CtxParser a = [String] -> Parsec [LToken] () a
 
 -- | Parse the given nullary token
