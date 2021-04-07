@@ -5,7 +5,7 @@
 with pkgs;
 
 haskell.lib.buildStackProject ({
-  name = "inline-java";
+  name = "stitch-lh";
   buildInputs = [ git z3 ];
   ghc = ghc;
   LANG = "en_US.utf8";
