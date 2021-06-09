@@ -7,7 +7,7 @@ packages:
 
 extra-deps:
 - git: https://github.com/ucsd-progsys/liquidhaskell.git
-  commit: 8f38ac994714df52670df4eb1a267b1929de32bb
+  commit: 60cdcab03a47a28a6f564bf30ddd5d44b5e3244a
   subdirs:
   - .
   - liquid-base
@@ -15,7 +15,7 @@ extra-deps:
   - liquid-ghc-prim
   - liquid-prelude
 - git: https://github.com/ucsd-progsys/liquid-fixpoint.git
-  commit: 6b09a63d7d6b0f65b781b6923430774c11877aed
+  commit: 2e0f4762e635e7ff06d059a74978d0b4a7d69032
 - megaparsec-8.0.0@sha256:362f85e243ecbcb550e1de6e5c74ba5a50c09edaa1208c99bc5b9fd242227fc6,3808
 
 nix:

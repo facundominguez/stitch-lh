@@ -89,7 +89,9 @@ evalWithCtx ctx e0 = case e0 of
     Var _ i ->
       List.elemAt i (ctx ? mapValueTypeLength_prop ctx) ? elemAtThroughMapValueType_prop i ctx
 
-    Lam ty_arg e -> VFun e0 ((\v -> evalWithCtx (Cons v ctx) e) ? funResTy_lam_prop ty_arg e)
+    -- TODO: omitting funArgTyLam_prop here gives a non-obvious message.
+    -- Think about techiniques to arrive quickly at the missing assumption.
+    Lam ty_arg e -> VFun e0 ((\v -> evalWithCtx (Cons (v ? funArgTyLam_prop ty_arg e) ctx) e) ? funResTy_lam_prop ty_arg e)
 
     App e1 e2 -> case evalWithCtx ctx e1 of
       VFun _ f -> f (evalWithCtx ctx e2)
@@ -161,6 +163,22 @@ mapValueTypeLength_prop ctx =
   List.length (mapValueType ctx)
   ===
   List.length ctx
+  ***
+  QED
+
+
+-- TODO: why isn't funArgTyLam_prop obvious to LH?
+{-@
+funArgTyLam_prop
+  :: ty : Ty
+  -> e : Exp
+  -> { funArgTy (exprType (Lam ty e)) = ty }
+@-}
+funArgTyLam_prop :: Ty -> Exp -> Proof
+funArgTyLam_prop ty e =
+  funArgTy (TFun ty (exprType e))
+  ===
+  ty
   ***
   QED
 
