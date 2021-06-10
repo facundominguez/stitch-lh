@@ -175,12 +175,7 @@ funArgTyLam_prop
   -> { funArgTy (exprType (Lam ty e)) = ty }
 @-}
 funArgTyLam_prop :: Ty -> Exp -> Proof
-funArgTyLam_prop ty e =
-  funArgTy (TFun ty (exprType e))
-  ===
-  ty
-  ***
-  QED
+funArgTyLam_prop _ _ = ()
 
 {-@
 elemAtThroughMapValueType_prop
