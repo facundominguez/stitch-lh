@@ -19,7 +19,6 @@ module Language.Stitch.LH.Step where
 
 -- XXX: Needed to avoid missing symbols in LH
 import qualified Data.Set as Set
-import Language.Haskell.Liquid.ProofCombinators ((?))
 import Language.Stitch.LH.Data.List (List(..))
 -- XXX: Needed to avoid missing symbols in LH
 import qualified Language.Stitch.LH.Data.List as List
@@ -91,8 +90,9 @@ step e0 = case e0 of
       Nothing -> case step e2 of
         Just e2' -> Just (App e1 e2')
         Nothing -> case e1 of
-          Lam _ e11 ->
-            Just (subst e2 (e11 ? funTypeProjections_prop (exprType e1)))
+          Lam ty e11 ->
+            -- The extra ? should be necessary but for some reason it isn't
+            Just (subst e2 e11) -- ? case exprType e1 of TFun _ _ -> e11
           _ -> Nothing -- This case is impossible
     Let e1 e2 -> case step e1 of
       Just e1' -> Just (Let e1' e2)
@@ -111,7 +111,8 @@ step e0 = case e0 of
       Just e1' -> Just (Fix e1')
       Nothing -> case e1 of
         Lam _ e11 ->
-          Just (subst e0 (e11 ? funTypeProjections_prop (exprType e1)))
+          -- The extra ? should be necessary but for some reason it isn't
+          Just (subst e0 e11) -- ? case exprType e1 of TFun _ _ -> e11
         _ -> Nothing -- This case is impossible
     IntE{} -> Nothing
     BoolE{} -> Nothing

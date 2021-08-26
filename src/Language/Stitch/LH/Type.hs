@@ -15,53 +15,29 @@
 
 module Language.Stitch.LH.Type where
 
-import Language.Stitch.LH.Util
+import Language.Stitch.LH.Util (Prec, topPrec, maybeParens)
 
 import Text.PrettyPrint.ANSI.Leijen
 import Data.Hashable
 import GHC.Generics
-import Language.Haskell.Liquid.ProofCombinators (Proof, (==.), (***), QED(..))
+import Language.Haskell.Liquid.ProofCombinators
 
 -- | The type of a Stitch expression
 data Ty = TInt
         | TBool
-        | TFun Ty Ty
+        | TFun { funArgTy :: Ty, funResTy :: Ty }
   deriving (Show, Eq, Generic, Hashable)
 
 {-@
-type FunTy = {t : Ty | isFunTy t }
 data Ty = TInt
         | TBool
-        | TFun Ty Ty
+        | TFun { funArgTy :: Ty, funResTy :: Ty }
 @-}
-
-{-@ measure funResTy @-}
-{-@ funResTy :: FunTy -> Ty @-}
-funResTy :: Ty -> Ty
-funResTy (TFun _ b) = b
-
-{-@ measure funArgTy @-}
-{-@ funArgTy :: FunTy -> Ty @-}
-funArgTy :: Ty -> Ty
-funArgTy (TFun a _) = a
 
 {-@ measure isFunTy @-}
 isFunTy :: Ty -> Bool
 isFunTy (TFun _ _) = True
 isFunTy _ = False
-
--- XXX: Can't find a way to replace ==. with === in this proof.
-{-@
-funTypeProjections_prop
-  :: ty:FunTy -> { ty = TFun (funArgTy ty) (funResTy ty) }
-@-}
-funTypeProjections_prop :: Ty -> Proof
-funTypeProjections_prop ty@(TFun _ _) =
-  ty
-  ==.
-  TFun (funArgTy ty) (funResTy ty)
-  ***
-  QED
 
 instance Pretty Ty where
   pretty = pretty_ty topPrec
