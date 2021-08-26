@@ -33,9 +33,9 @@ import Text.PrettyPrint.ANSI.Leijen
 
 
 {-@
-type LessFreeVarsThan N = { e : Exp | numFreeVarsExp e <= N }
+type ExpWithLessFreeVarsThan N = { e : Exp | numFreeVarsExp e <= N }
 type SaneBindings exp CTX = { e : exp | checkBindings CTX e }
-type WellTypedExp CTX = SaneBindings (LessFreeVarsThan (List.length CTX)) CTX
+type WellTypedExp CTX = SaneBindings (ExpWithLessFreeVarsThan (List.length CTX)) CTX
 predicate WellTyped E CTX = checkBindings CTX E && numFreeVarsExp E <= (List.length CTX)
 type FunExp = { e : Exp | isFunTy (exprType e) }
 type ExpT T = { e : Exp | T = exprType e }
@@ -66,7 +66,7 @@ data Exp
 
 -- An expression paired with the bound for the valid
 -- variable indices
-{-@ data ScopedExp = ScopedExp (n :: NumVarsInScope) (LessFreeVarsThan n) @-}
+{-@ data ScopedExp = ScopedExp (n :: NumVarsInScope) (ExpWithLessFreeVarsThan n) @-}
 data ScopedExp = ScopedExp NumVarsInScope Exp
 
 instance Pretty ScopedExp where
@@ -99,7 +99,7 @@ exprType (BoolE _) = TBool
 
 -- | Check that all occurrences of a variable have the given type
 {-@ reflect checkBindings @-}
-{-@ checkBindings :: ctx : List Ty -> LessFreeVarsThan (List.length ctx) -> Bool @-}
+{-@ checkBindings :: ctx : List Ty -> ExpWithLessFreeVarsThan (List.length ctx) -> Bool @-}
 checkBindings :: List Ty -> Exp -> Bool
 checkBindings ctx (Var vty i) = List.elemAt i ctx == vty
 checkBindings ctx (Lam t e) = checkBindings (Cons t ctx) e
