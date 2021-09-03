@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -fplugin=LiquidHaskell -Wno-incomplete-patterns #-}
 {-@ LIQUID "--exact-data-cons" @-}
+{-@ LIQUID "--ple" @-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -16,12 +17,13 @@
 
 module Language.Stitch.LH.Data.List where
 
+import Language.Haskell.Liquid.ProofCombinators ((?), trivial, Proof)
 import Language.Stitch.LH.Data.Nat
-import Prelude hiding (length, take)
+import Prelude hiding (head, length, map, tail, take)
 
 
 -- XXX: Using a custom List instead of [a] avoids LH error: unknown function/constant smt_set_sng
-data List a = Cons a (List a) | Nil
+data List a = Cons { head :: a, tail :: List a } | Nil
 
 {-@
 inline empty
@@ -63,3 +65,37 @@ length :: xs : List a -> Nat
 length :: List a -> Nat
 length Nil = 0
 length (Cons _ xs) = 1 + length xs
+
+{-@
+reflect append
+append ::
+  xs : List a ->
+  ys : List a ->
+  { zs : List a | length zs == length xs + length ys }
+ @-}
+append :: List a -> List a -> List a
+append Nil ys = ys
+append (Cons x xs) ys = Cons x (append xs ys)
+
+{-@
+appendLengh
+  :: xs : List a
+  -> ys : List a
+  -> { length (append xs ys) == length xs + length ys}
+@-}
+appendLengh :: List a -> List a -> Proof
+appendLengh xs ys = trivial ? append xs ys
+
+{-@
+elemAtThroughAppend
+  :: i : Nat
+  -> xs : { xs : List a | i < length xs }
+  -> ys : List a
+  -> { elemAt i (append xs ys) = elemAt i xs }
+@-}
+elemAtThroughAppend :: Nat -> List a -> List a -> Proof
+elemAtThroughAppend i xs ys =
+  if i == 0 then trivial
+  else case xs of
+    Cons _ xss -> elemAtThroughAppend (i - 1) xss ys
+    Nil -> trivial

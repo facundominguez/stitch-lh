@@ -20,7 +20,6 @@ import Language.Stitch.LH.Util (Prec, topPrec, maybeParens)
 import Text.PrettyPrint.ANSI.Leijen
 import Data.Hashable
 import GHC.Generics
-import Language.Haskell.Liquid.ProofCombinators
 
 -- | The type of a Stitch expression
 data Ty = TInt

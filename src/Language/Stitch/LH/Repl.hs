@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleInstances, UndecidableInstances, ViewPatterns,
              NondecreasingIndentation #-}
 {-# OPTIONS_GHC -fplugin=LiquidHaskell #-}
+-- XXX: Why do we need --exact-data-cons here?
 {-@ LIQUID "--exact-data-cons" @-}
+{-@ LIQUID "--ple" @-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -19,10 +21,10 @@ module Language.Stitch.LH.Repl ( main ) where
 
 import Prelude hiding ( lex )
 
+-- XXX: LH requires Map to be in scope ??
+import Data.Map (Map)
 import Language.Stitch.LH.Data.List (List)
 import qualified Language.Stitch.LH.Data.List as List -- XXX: required by LH
--- XXX: LH requires Map to be in scope ??
-import Language.Stitch.LH.Data.Map (Map)
 import Language.Stitch.LH.Check
 import Language.Stitch.LH.Eval
 import Language.Stitch.LH.Lex
@@ -54,6 +56,13 @@ main = runInputT defaultSettings $
          loop
 
 {-@ lazy loop @-}
+-- XXX: Omiting the type signature seems to synthetize
+--      loop :: { v : Stitch () | false }
+--      which disables validation everywere loop is used
+--      and it also seems to synthetize { v : Stitch () | false }
+--      for other functions used by loop that don't have
+--      annotations either.
+{-@ loop :: Stitch () @-}
 loop :: Stitch ()
 loop = do
   m_line <- prompt "λ> "

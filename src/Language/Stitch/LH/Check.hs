@@ -18,12 +18,13 @@
 
 module Language.Stitch.LH.Check where
 
+import Data.Map (Map)
+import qualified Data.Map as Map
 -- XXX: If we don't import Data.Set, LH fails with: Unbound symbol Set_mem
 import qualified Data.Set as Set
+import Language.Haskell.Liquid.ProofCombinators
 import Language.Stitch.LH.Data.List (List(..))
 import qualified Language.Stitch.LH.Data.List as List
-import Language.Stitch.LH.Data.Map (Map)
-import qualified Language.Stitch.LH.Data.Map as Map
 import Language.Stitch.LH.Data.Nat as Nat
 import Language.Stitch.LH.Type
 import Language.Stitch.LH.Op
@@ -112,13 +113,34 @@ checkBindings _ (IntE _) = True
 checkBindings _ (BoolE _) = True
 
 {-@
-assume aClosedExpIsValidInAnyContext
-  :: ctx : List Ty
-  -> e : WellTypedExp Nil
-  -> { er : WellTypedExp ctx | e = er }
+rewriteWith aClosedExpIsValidInAnyContext [List.appendLengh]
+aClosedExpIsValidInAnyContext
+  :: ctx0 : List Ty
+  -> ctx1 : List Ty
+  -> e : Exp
+  -> { WellTyped e ctx0 <=> WellTyped e (List.append ctx0 ctx1) && numFreeVarsExp e <= List.length ctx0 }
 @-}
-aClosedExpIsValidInAnyContext :: List Ty -> Exp -> Exp
-aClosedExpIsValidInAnyContext _ e = e
+aClosedExpIsValidInAnyContext :: List Ty -> List Ty -> Exp -> Proof
+aClosedExpIsValidInAnyContext ctx0 ctx1 e = case e of
+  Var _ i ->
+    if i < List.length ctx0 then List.elemAtThroughAppend i ctx0 ctx1
+    else trivial
+  Lam ty body ->
+    aClosedExpIsValidInAnyContext (Cons ty ctx0) ctx1 body
+  App e1 e2 ->
+    aClosedExpIsValidInAnyContext ctx0 ctx1 e1 ? aClosedExpIsValidInAnyContext ctx0 ctx1 e2
+  Let e1 e2 ->
+    aClosedExpIsValidInAnyContext ctx0 ctx1 e1 ? aClosedExpIsValidInAnyContext (Cons (exprType e1) ctx0) ctx1 e2
+  Arith e1 _ e2 ->
+    aClosedExpIsValidInAnyContext ctx0 ctx1 e1 ? aClosedExpIsValidInAnyContext ctx0 ctx1 e2
+  Cond e1 e2 e3 ->
+    aClosedExpIsValidInAnyContext ctx0 ctx1 e1
+      ? aClosedExpIsValidInAnyContext ctx0 ctx1 e2
+      ? aClosedExpIsValidInAnyContext ctx0 ctx1 e3
+  Fix body ->
+    aClosedExpIsValidInAnyContext ctx0 ctx1 body
+  IntE _ -> trivial
+  BoolE _ -> trivial
 
 {-@
 measure numFreeVarsExp
@@ -159,7 +181,7 @@ check globals = go Nil
                  in f (Var ty i) ty
 
       UGlobal name -> case lookupGlobal name globals of
-        Just (TypedExp e t) -> f (aClosedExpIsValidInAnyContext ctx e) t
+        Just (TypedExp e t) -> f (e ? aClosedExpIsValidInAnyContext Nil ctx e) t
         Nothing -> Left (OutOfScopeGlobal name)
 
       -- XXX: Using $ here causes liquid haskell to crash

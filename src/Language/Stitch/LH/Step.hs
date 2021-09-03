@@ -18,12 +18,13 @@
 module Language.Stitch.LH.Step where
 
 -- XXX: Needed to avoid missing symbols in LH
+import qualified Data.Map as Map
+-- XXX: Needed to avoid missing symbols in LH
 import qualified Data.Set as Set
+import Language.Haskell.Liquid.ProofCombinators
 import Language.Stitch.LH.Data.List (List(..))
 -- XXX: Needed to avoid missing symbols in LH
 import qualified Language.Stitch.LH.Data.List as List
--- XXX: Needed to avoid missing symbols in LH
-import qualified Language.Stitch.LH.Data.Map as Map
 import Language.Stitch.LH.Data.Nat
 import Language.Stitch.LH.Check
 import Language.Stitch.LH.Eval
@@ -39,8 +40,11 @@ subst
 subst :: Exp -> Exp -> Exp
 subst es e0 =
     let ctx = Cons (exprType es) Nil
-     in checkBindings_take_prop ctx (substIndex ctx 0 es e0)
+        er = substIndex ctx 0 es e0
+     in er ? aClosedExpIsValidInAnyContext Nil ctx er
 
+-- | Substitutes variables with a given index with a given expression.
+--
 -- XXX: The ctx argument is only needed to tell LH about preservation
 -- of checkBindings, it is not needed at runtime.
 {-@
@@ -57,7 +61,7 @@ substIndex :: List Ty -> Nat -> Exp -> Exp -> Exp
 substIndex ctx i es e0 = case e0 of
     Var _ v ->
       if v == i then
-        aClosedExpIsValidInAnyContext ctx es
+        es ? aClosedExpIsValidInAnyContext Nil ctx es
       else
         e0
     Lam ty e1 -> Lam ty (substIndex (Cons ty ctx) (i + 1) es e1)
@@ -68,16 +72,6 @@ substIndex ctx i es e0 = case e0 of
     Fix e1 -> Fix (substIndex ctx i es e1)
     IntE _ -> e0
     BoolE _ -> e0
-
--- XXX: Prove checkBindings_take_prop
-{-@
-assume checkBindings_take_prop
-  :: ctx:List Ty
-  -> e:{ WellTypedExp ctx | numFreeVarsExp e < List.length ctx }
-  -> { er:WellTypedExp (List.take (numFreeVarsExp e) ctx) | er = e }
-@-}
-checkBindings_take_prop :: List Ty -> Exp -> Exp
-checkBindings_take_prop _ctx e = e
 
 {-@
 step :: e:WellTypedExp Nil -> Maybe ({ r:WellTypedExp Nil | exprType e = exprType r })
@@ -90,10 +84,9 @@ step e0 = case e0 of
       Nothing -> case step e2 of
         Just e2' -> Just (App e1 e2')
         Nothing -> case e1 of
-          Lam ty e11 ->
-            -- The extra ? should be necessary but for some reason it isn't
-            Just (subst e2 e11) -- ? case exprType e1 of TFun _ _ -> e11
-          _ -> Nothing -- This case is impossible
+          Lam _ e11 -> Just (subst e2 e11)
+          _ -> Nothing -- This case is impossible but would need a prove
+                       -- to verify it
     Let e1 e2 -> case step e1 of
       Just e1' -> Just (Let e1' e2)
       Nothing -> Just (subst e1 e2)
@@ -110,9 +103,7 @@ step e0 = case e0 of
     Fix e1 -> case step e1 of
       Just e1' -> Just (Fix e1')
       Nothing -> case e1 of
-        Lam _ e11 ->
-          -- The extra ? should be necessary but for some reason it isn't
-          Just (subst e0 e11) -- ? case exprType e1 of TFun _ _ -> e11
+        Lam _ e11 -> Just (subst e0 e11)
         _ -> Nothing -- This case is impossible
     IntE{} -> Nothing
     BoolE{} -> Nothing

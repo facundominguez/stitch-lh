@@ -18,12 +18,12 @@
 module Language.Stitch.LH.Eval where
 
 -- XXX: Needed to avoid missing symbols in LH
+import qualified Data.Map as Map
+-- XXX: Needed to avoid missing symbols in LH
 import qualified Data.Set as Set
-import Language.Haskell.Liquid.ProofCombinators (Proof, (===), (***), QED(..), (?))
+import Language.Haskell.Liquid.ProofCombinators (Proof, trivial, (?))
 import Language.Stitch.LH.Data.List (List(..))
 import qualified Language.Stitch.LH.Data.List as List
--- XXX: Needed to avoid missing symbols in LH
-import qualified Language.Stitch.LH.Data.Map as Map
 import Language.Stitch.LH.Data.Nat
 import Language.Stitch.LH.Check
 import Language.Stitch.LH.Op
@@ -54,6 +54,7 @@ instance Pretty Value where
     VFun e _ -> pretty (ScopedExp (numFreeVarsExp e) e)
 
 {-@
+// XXX: Why can't we reflect map?
 // XXX: If using measure, LH fails with: elaborate makeKnowledge failed on
 reflect mapValueType
 mapValueType
@@ -87,11 +88,9 @@ evalWithCtx :: ctx:List Value -> e:WellTypedExp (mapValueType ctx) -> ValueT (ex
 evalWithCtx :: List Value -> Exp -> Value
 evalWithCtx ctx e0 = case e0 of
     Var _ i ->
-      List.elemAt i (ctx ? mapValueTypeLength_prop ctx) ? elemAtThroughMapValueType_prop i ctx
+      List.elemAt i (ctx ? mapValueType ctx) ? elemAtThroughMapValueType_prop i ctx
 
-    -- TODO: omitting funArgTyLam_prop here gives a non-obvious message.
-    -- Think about techiniques to arrive quickly at the missing assumption.
-    Lam ty_arg e -> VFun e0 ((\v -> evalWithCtx (Cons (v ? funArgTyLam_prop ty_arg e) ctx) e) ? funResTy_lam_prop ty_arg e)
+    Lam ty_arg e -> VFun e0 ((\v -> evalWithCtx (Cons v ctx) e) ? funResTy_lam_prop ty_arg e)
 
     App e1 e2 -> case evalWithCtx ctx e1 of
       VFun _ f -> f (evalWithCtx ctx e2)
@@ -153,30 +152,6 @@ unsafeDiv = div
 unsafeMod :: Int -> Int -> Int
 unsafeMod = mod
 
-
-{-@
-mapValueTypeLength_prop
-  :: ctx:List Value -> { List.length (mapValueType ctx) = List.length ctx }
-@-}
-mapValueTypeLength_prop :: List Value -> Proof
-mapValueTypeLength_prop ctx =
-  List.length (mapValueType ctx)
-  ===
-  List.length ctx
-  ***
-  QED
-
-
--- TODO: why isn't funArgTyLam_prop obvious to LH?
-{-@
-funArgTyLam_prop
-  :: ty : Ty
-  -> e : Exp
-  -> { funArgTy (exprType (Lam ty e)) = ty }
-@-}
-funArgTyLam_prop :: Ty -> Exp -> Proof
-funArgTyLam_prop _ _ = ()
-
 {-@
 elemAtThroughMapValueType_prop
   :: i:Nat
@@ -184,44 +159,14 @@ elemAtThroughMapValueType_prop
   -> { List.elemAt i (mapValueType ctx) = valueType (List.elemAt i ctx) }
 @-}
 elemAtThroughMapValueType_prop :: Nat -> List Value -> Proof
-elemAtThroughMapValueType_prop 0 ctx@(Cons _ _) =
-  List.elemAt 0 (mapValueType ctx)
-  ===
-  valueType (List.elemAt 0 ctx)
-  ***
-  QED
-elemAtThroughMapValueType_prop i ctx@(Cons _ ctxs) =
-  List.elemAt i (mapValueType ctx)
-  ===
-  List.elemAt (i - 1) (mapValueType ctxs)
-  ===
-  (valueType (List.elemAt (i - 1) ctxs) ? elemAtThroughMapValueType_prop (i - 1) ctxs)
-  ===
-  valueType (List.elemAt i ctx)
-  ***
-  QED
+elemAtThroughMapValueType_prop 0 (Cons _ _) = trivial
+elemAtThroughMapValueType_prop i (Cons _ ctxs) =
+  elemAtThroughMapValueType_prop (i - 1) ctxs
 
 {-@
+// XXX: why is this proof necessary?
 funResTy_lam_prop
   :: ty:Ty -> e:Exp -> { funResTy (exprType (Lam ty e)) = exprType e }
 @-}
 funResTy_lam_prop :: Ty -> Exp -> Proof
-funResTy_lam_prop ty e =
-  funResTy (exprType (Lam ty e) ? isFunTy_lam_prop ty e)
-  ===
-  exprType e
-  ***
-  QED
-
-{-@
-isFunTy_lam_prop :: ty:Ty -> e:Exp -> { isFunTy (exprType (Lam ty e)) }
-@-}
-isFunTy_lam_prop :: Ty -> Exp -> Proof
-isFunTy_lam_prop ty e =
-  isFunTy (exprType (Lam ty e))
-  ===
-  isFunTy (TFun ty (exprType e))
-  ===
-  True
-  ***
-  QED
+funResTy_lam_prop _ _ = trivial

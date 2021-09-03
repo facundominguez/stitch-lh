@@ -5,9 +5,9 @@ module Tests.Check where
 
 import Prelude hiding ( lex )
 
+import qualified Data.Map as Map -- XXX: Needed for LH
 import Language.Stitch.LH.Check
 import qualified Language.Stitch.LH.Data.List as List -- XXX: Needed for LH
-import qualified Language.Stitch.LH.Data.Map as Map -- XXX: Needed for LH
 import Language.Stitch.LH.Parse
 import Language.Stitch.LH.Lex
 import Language.Stitch.LH.Check

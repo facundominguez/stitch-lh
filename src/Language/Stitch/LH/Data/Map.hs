@@ -10,8 +10,11 @@
 -- Stability   :  experimental
 --
 -- An interface of maps that can be used in reflected definitions
--- with LH
+-- with LH. It is not currently used in the rest of stitch-lh, but
+-- I'm keeping it for now, just for the record.
 --
+-- The ability to reflect operations on Maps comes into play when
+-- trying to reflect the typechecker.
 ----------------------------------------------------------------------------
 
 module Language.Stitch.LH.Data.Map
