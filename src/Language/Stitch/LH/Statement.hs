@@ -24,8 +24,8 @@ import Text.PrettyPrint.ANSI.Leijen
 -- | A statement can either be a bare expression, which will be evaluated,
 -- or an assignment to a global variable.
 {-@
-data Statement = BareExp (VarsSmallerThan UExp 0)
-               | NewGlobal String (VarsSmallerThan UExp 0)
+data Statement = BareExp ClosedUExp
+               | NewGlobal String ClosedUExp
 @-}
 data Statement = BareExp UExp
                | NewGlobal String UExp

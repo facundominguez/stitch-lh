@@ -74,20 +74,20 @@ numFreeVars (UIntE _) = 0
 numFreeVars (UBoolE _) = 0
 
 {-@
-type VarsSmallerThan exp N = { e : exp | numFreeVars e <= N }
-type ClosedUExp = { e : UExp | VarsSmallerThan UExp 0 }
+type VarsSmallerThan N = { e : UExp | numFreeVars e <= N }
+type ClosedUExp = { e : UExp | numFreeVars e == 0 }
 @-}
 
 -- An expression paired with the bound for the valid
 -- variable indices
-{-@ data ScopedUExp = ScopedUExp (n :: NumVarsInScope) (VarsSmallerThan UExp n) @-}
+{-@ data ScopedUExp = ScopedUExp (n :: NumVarsInScope) (VarsSmallerThan n) @-}
 data ScopedUExp = ScopedUExp NumVarsInScope UExp
   deriving (Eq, Show)
 
 instance Pretty ScopedUExp where
   pretty (ScopedUExp n e) = prettyExp n topPrec e
 
-{-@ prettyExp :: n : NumVarsInScope -> Prec -> VarsSmallerThan UExp n -> Doc @-}
+{-@ prettyExp :: n : NumVarsInScope -> Prec -> VarsSmallerThan n -> Doc @-}
 prettyExp :: NumVarsInScope -> Prec -> UExp -> Doc
 prettyExp n prec = \case
   UVar v       -> applyColor (ScopedVar n v) (char '#' <> int v)

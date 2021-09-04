@@ -34,10 +34,8 @@ import Text.PrettyPrint.ANSI.Leijen
 
 
 {-@
-type ExpWithLessFreeVarsThan N = { e : Exp | numFreeVarsExp e <= N }
-type SaneBindings exp CTX = { e : exp | checkBindings CTX e }
-type WellTypedExp CTX = SaneBindings (ExpWithLessFreeVarsThan (List.length CTX)) CTX
-predicate WellTyped E CTX = checkBindings CTX E && numFreeVarsExp E <= (List.length CTX)
+predicate WellTyped E CTX = checkBindings CTX E && numFreeVarsExp E <= List.length CTX
+type WellTypedExp CTX = { e : Exp | WellTyped e CTX }
 type FunExp = { e : Exp | isFunTy (exprType e) }
 type ExpT T = { e : Exp | T = exprType e }
 data Exp
@@ -67,7 +65,7 @@ data Exp
 
 -- An expression paired with the bound for the valid
 -- variable indices
-{-@ data ScopedExp = ScopedExp (n :: NumVarsInScope) (ExpWithLessFreeVarsThan n) @-}
+{-@ data ScopedExp = ScopedExp (n :: NumVarsInScope) {e : Exp | numFreeVarsExp e <= n } @-}
 data ScopedExp = ScopedExp NumVarsInScope Exp
 
 instance Pretty ScopedExp where
@@ -99,8 +97,13 @@ exprType (IntE _) = TInt
 exprType (BoolE _) = TBool
 
 -- | Check that all occurrences of a variable have the given type
-{-@ reflect checkBindings @-}
-{-@ checkBindings :: ctx : List Ty -> ExpWithLessFreeVarsThan (List.length ctx) -> Bool @-}
+{-@
+reflect checkBindings
+checkBindings
+  :: ctx : List Ty
+  -> { e : Exp | numFreeVarsExp e <= List.length ctx }
+  -> Bool
+@-}
 checkBindings :: List Ty -> Exp -> Bool
 checkBindings ctx (Var vty i) = List.elemAt i ctx == vty
 checkBindings ctx (Lam t e) = checkBindings (Cons t ctx) e
@@ -118,7 +121,9 @@ aClosedExpIsValidInAnyContext
   :: ctx0 : List Ty
   -> ctx1 : List Ty
   -> e : Exp
-  -> { WellTyped e ctx0 <=> WellTyped e (List.append ctx0 ctx1) && numFreeVarsExp e <= List.length ctx0 }
+  -> { WellTyped e ctx0 <=>
+       WellTyped e (List.append ctx0 ctx1) && numFreeVarsExp e <= List.length ctx0
+     }
 @-}
 aClosedExpIsValidInAnyContext :: List Ty -> List Ty -> Exp -> Proof
 aClosedExpIsValidInAnyContext ctx0 ctx1 e = case e of
@@ -162,7 +167,7 @@ numFreeVarsExp (BoolE _) = 0
 {-@
 check
   :: Globals
-  -> VarsSmallerThan UExp 0
+  -> VarsSmallerThan 0
   -> (e : WellTypedExp Nil -> { t: Ty | exprType e = t } -> Either TyError b)
   -> Either TyError b
 @-}
@@ -171,7 +176,7 @@ check globals = go Nil
   where
     {-@
       go :: ts : List Ty
-         -> VarsSmallerThan UExp (List.length ts)
+         -> VarsSmallerThan (List.length ts)
          -> (e1 : WellTypedExp ts -> { t: Ty | exprType e1 = t } -> Either TyError b)
          -> Either TyError b
       @-}
