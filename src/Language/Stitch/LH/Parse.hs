@@ -68,17 +68,13 @@ parseStmtM = eitherToStitchE . parseStmt
 parseStmt :: [LToken] -> Either String Statement
 parseStmt = parse stmt
 
--- XXX: LH can't find the definition of VarsSmallerThan in
--- Language.Stitch.LH.Unchecked
-{-@ type ClosedUExpP = { e : UExp | numFreeVars e = 0 } @-}
-
 -- | Parse a 'UExp', aborting with an error upon failure
-{-@ parseExpM :: [LToken] -> StitchE ClosedUExpP @-}
+{-@ parseExpM :: [LToken] -> StitchE ClosedUExp @-}
 parseExpM :: [LToken] -> StitchE UExp
 parseExpM = eitherToStitchE . parseExp
 
 -- | Parse a 'UExp'
-{-@ parseExp :: [LToken] -> Either String ClosedUExpP @-}
+{-@ parseExp :: [LToken] -> Either String ClosedUExp @-}
 parseExp :: [LToken] -> Either String UExp
 parseExp = parse (expr [])
 

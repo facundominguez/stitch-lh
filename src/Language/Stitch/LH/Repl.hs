@@ -162,7 +162,7 @@ stitchE thing_inside = do
     Right x  -> report x
   put new_globals
 
-{-@ parseLex :: String -> StitchE ClosedUExpP @-}
+{-@ parseLex :: String -> StitchE ClosedUExp @-}
 parseLex :: String -> StitchE UExp
 parseLex = parseExpM <=< lexM
 
