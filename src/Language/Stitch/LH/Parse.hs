@@ -88,6 +88,12 @@ parse p toks = Arrow.left show $ runParser (p <* eof) () "" toks
 ----------------------
 -- Plumbing
 
+-- CHALLENGE: Explore using
+--
+-- > type Parser a = ParsecT [LToken] () (Reader [String]) a
+--
+-- instead of using CtxParser
+
 type Parser a = Parsec [LToken] () a
 
 -- | A parser usable in a context with the bound variables in the

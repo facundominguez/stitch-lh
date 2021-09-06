@@ -34,6 +34,16 @@ import Text.PrettyPrint.ANSI.Leijen
 ------------------------------------------------
 -- Evaluation
 
+-- CHALLENGE: The first parameter of VFun below should be a closed expression.
+-- Change the Spec so it is closed and fix the program which is buggy.
+--
+-- This is visible when printing function that are partially
+-- applied.
+--
+-- > λ> (\a:Int . \b:Int . a * b) 2
+-- > λ#:Int. #1 * #0 : Int -> Int
+--
+
 {-@
 type ValueT T = { v:Value | valueType v = T }
 data Value

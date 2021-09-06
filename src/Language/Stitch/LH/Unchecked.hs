@@ -52,9 +52,6 @@ data UExp
   | UBoolE Bool
   deriving (Eq, Show)
 
--- XXX: Looks like we can't count the variables in scope without modifying
--- the type UExp. Instead, we count the minimum amount of variables that
--- should be in scope to make the expression valid.
 {-@
 measure numFreeVars
 numFreeVars :: UExp -> Nat

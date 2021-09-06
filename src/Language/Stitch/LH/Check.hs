@@ -164,10 +164,13 @@ numFreeVarsExp (Fix body) = numFreeVarsExp body
 numFreeVarsExp (IntE _) = 0
 numFreeVarsExp (BoolE _) = 0
 
+-- CHALLENGE: if @check g u (const . Right) == Right e@ enhance the
+-- specification to say that @uncheckExp e == expandGlobals u@.
+
 {-@
 check
   :: Globals
-  -> VarsSmallerThan 0
+  -> ClosedUExp
   -> (e : WellTypedExp Nil -> { t: Ty | exprType e = t } -> Either TyError b)
   -> Either TyError b
 @-}
