@@ -5,9 +5,15 @@ resolver: nightly-2020-12-14
 packages:
 - .
 
+allow-newer: True
 extra-deps:
 - git: https://github.com/ucsd-progsys/liquidhaskell.git
-  commit: d9155afac5e4c477c1555f855cf26af4ae018006
+  # commit: 210fb6591ff914e2e0b4ec91063f788edebc5730
+  # commit: 844fb121c39e6fc67c9467b766bda2a851c9033d
+  # commit: 92752059ba869817b356f48570726277fa9b381f
+  # commit: ace2c29603c8e645ec1e707aeb816daeb5066c5a
+  # commit: d6638d90ae18f934391d2e45e1dd03e2bcdc2fb1
+  commit: 75a2a8f188f5c77bba6bc8ce9664547615e479df
   subdirs:
   - .
   - liquid-base
@@ -15,9 +21,20 @@ extra-deps:
   - liquid-ghc-prim
   - liquid-prelude
 - git: https://github.com/ucsd-progsys/liquid-fixpoint.git
-  commit: 707c573fb1aabd8be0ba892df20ffc5f5f043b20
-- megaparsec-8.0.0@sha256:362f85e243ecbcb550e1de6e5c74ba5a50c09edaa1208c99bc5b9fd242227fc6,3808
+  # commit: b02601f49f01578bd5158a5d29bf0e1c685b7f89
+  # commit: d0398bd978bf14a888556df25fa9e15254fe1945
+  # commit: 48213234167a683b716993f910c8a8272ee432a4
+  # commit: e8b423cb3b48e6b8e8635808c26e1313285a756d
+  # commit: a7f4fd7c250bf72a24332b2ffc99d067ee2bdfb1
+  commit: 33b0dec432b4cc3f911fac77e6819f1e35b0d6cc
 
+
+- megaparsec-8.0.0@sha256:362f85e243ecbcb550e1de6e5c74ba5a50c09edaa1208c99bc5b9fd242227fc6,3808
+- rest-rewrite-0.1.1@sha256:7e180d3feb7185e41e3813e4d5a7aa8dfc1cfb479e754e22e706bcc99a26cf35,4793
+
+ghc-options:
+    liquid-fixpoint: -j6
+    liquidhaskell: -j6
 nix:
   shell-file: shell-stack.nix
   path: ["nixpkgs=./nixpkgs.nix"]
