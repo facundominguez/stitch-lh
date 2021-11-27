@@ -12,7 +12,7 @@
 
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -fplugin=LiquidHaskell #-}
-{-@ LIQUID "--exact-data-cons" @-}
+{- LIQUID "--exact-data-cons" @-}
 
 module Language.Stitch.LH.Unchecked where
 

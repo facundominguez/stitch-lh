@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -fplugin=LiquidHaskell -Wno-incomplete-patterns #-}
 {-@ LIQUID "--exact-data-cons" @-}
 {-@ LIQUID "--ple" @-}
+{-@ LIQUID "--no-positivity-check" @-}
 
 -----------------------------------------------------------------------------
 -- |
