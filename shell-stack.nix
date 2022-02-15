@@ -6,7 +6,7 @@ with pkgs;
 
 haskell.lib.buildStackProject ({
   name = "stitch-lh";
-  buildInputs = [ git z3 ];
+  buildInputs = [ git z3 gmp libffi ];
   ghc = ghc;
   LANG = "en_US.utf8";
 })
